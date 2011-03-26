@@ -1,9 +1,11 @@
+import threading
 from amqplib import client_0_8 as amqp
 
-class MessageReader(object):
+class MessageReader(threading.Thread):
     '''Gets a message from a RabbitMQ server'''
     
     def __init__(self, server, vhost, userid, password, exchange, exchange_type, routing_key, callback):
+        threading.Thread.__init__(self)
         self.server=server
         self.vhost=vhost
         self.userid=userid
@@ -12,7 +14,9 @@ class MessageReader(object):
         self.routing_key=routing_key
         self.exchange_type=exchange_type
         self.callback=callback
-        
+        self._running=True
+
+    def run(self):        
         self.connection = amqp.Connection(host=self.server, userid=self.userid, password=self.password, virtual_host=self.vhost)
         self.channel = self.connection.channel()
         self.channel.exchange_declare(exchange=self.exchange, type=self.exchange_type, durable=True, auto_delete=False)
@@ -21,10 +25,14 @@ class MessageReader(object):
         
         self.channel.basic_consume(queue=self.routing_key, no_ack=True, callback=self.callback)
         
-    def wait(self):
-        while True:
+        while self.running==True:
             self.channel.wait()
             
+        self.channel.close()
+        self.connection.close()
+
+    def stop(self):
+        self._running=False
 
 
 if __name__ == '__main__':    
@@ -40,4 +48,5 @@ if __name__ == '__main__':
         print "Message received: "+message.body
     
     a=MessageReader(server, vhost, userid, password, exchange, exchange_type, routing_key, printOutput)
-    a.wait()
+    a.start()
+    a.join()
