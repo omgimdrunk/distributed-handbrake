@@ -1,11 +1,12 @@
-import os
 import subprocess
-import sys
 import re
 import datetime
 import time
 import pickle
-import subprocess_to_file
+import os.path
+from process_monitor import ProcessMonitor
+from messagewriter import MessageWriter
+
 
 QUALITY_FACTOR="18"
 
@@ -192,7 +193,7 @@ class EncodeCommands(object):
         
     #This takes a title dictionary, the path to the file and the filename, sans ext 
     #and returns a completed command line for Handbrake
-    def _construct_handbrake_command(self, title,filename):
+    def _construct_handbrake_command(self, title, filename):
         num_tracks=title.number_of_tracks
         audio_string=""
         codec_string=""
@@ -208,7 +209,7 @@ class EncodeCommands(object):
         audio_string=audio_string[:-1]	#remove trailing comma
         codec_string=codec_string[:-1]
         audio_language=audio_language[:-1]
-        self.command_lines.append(['HandBrakeCLI','-i',filename+'.iso','-t',title.title_number,'-o',filename + '_title_'+title.title_number+'.mkv','-f','mkv','-m','-e','x264','-q', QUALITY_FACTOR, '-x', 'ref=2:bframes=2:subq=6:mixed-refs=0:weightb=0:8x8dct=0:trellis=0', '--strict-anamorphic','-a',audio_string,'-E',codec_string,'-6','-A', audio_language])
+        self.command_lines.append(['HandBrakeCLI','-i',filename,'-t',title.title_number,'-o',filename + '_title_'+title.title_number+'.mkv','-f','mkv','-m','-e','x264','-q', QUALITY_FACTOR, '-x', 'ref=2:bframes=2:subq=6:mixed-refs=0:weightb=0:8x8dct=0:trellis=0', '--strict-anamorphic','-a',audio_string,'-E',codec_string,'-6','-A', audio_language])
 
         return
 
@@ -226,47 +227,36 @@ class EncodeCommands(object):
             codec_string="faac,"
         return audio_string,codec_string,audio_language
 
-filename_no_ext='bsg4-3'
-filename='bsg4-3.iso'
-#dvd=DVD('bsg4-3', 'bsg4-3.iso')
-#dvd.scan_disk()
 
-#f=open('testscan.txt', 'w')
-#pickle.dump(dvd, f)
-#f.close()
+def ProcessDVD(path,preset='Archival'):
+    (base_dir,file_name)=os.path.split(path)
+    (root,)=os.path.splitext(file_name)
+    os.chdir(base_dir)
+    os.mkdir(root)
+    subprocess.check_call(['mount','-t','loop',file_name,root])
+    cur_disk=DVD(root,path)
+    cur_disk.scan_disk()
+    commands=EncodeCommands(cur_disk.parsed_output,root)
+    subprocess.check_call(['umount',root])
+    writer=MessageWriter(server='Chiana', vhost='cluster-programs', \
+                         userid='cluster-admin', password='1234', \
+                         exchange='handbrake', exchange_durable=True, \
+                         exchange_auto_delete=False, exchange_type='direct',\
+                         routing_key='job-queue', queue_durable=True,\
+                         queue_auto_delete=False)
+    for i,item in enumerate(commands):
+        os.mkdir(root+'job'+str(i))
+        subprocess.check_call(['mount','-t','loop',file_name,root+'job'+str(i)])
+        writer.send_message(pickle.dumps([base_dir+root+'job'+str(i),item]))
+        
+    
 
-f=open('testscan.txt', 'r')
-dvd=pickle.load(f)
-f.close()
-
-commands=EncodeCommands(dvd.parsed_output, filename_no_ext)
-subprocess_to_file.HandBrake_Encode(commands.command_lines[0])
 
 
-
-
-""" public void ReadEncodeStatus()
-    {
-        CultureInfo culture = CultureInfo.CreateSpecificCulture("en-US");
-        string tmp = base.ReadLine();
-
-        Match m = Regex.Match(tmp, @"^Encoding: task ([0-9]*) of ([0-9]*), ([0-9]*\.[0-9]*) %( \(([0-9]*\.[0-9]*) fps, avg ([0-9]*\.[0-9]*) fps, ETA ([0-9]{2})h([0-9]{2})m([0-9]{2})s\))?");
-        if (m.Success && OnEncodeProgress != null)
-        {
-            int currentTask = int.Parse(m.Groups[1].Value);
-            int totalTasks = int.Parse(m.Groups[2].Value);
-            float percent = float.Parse(m.Groups[3].Value, culture);
-            float currentFps = m.Groups[5].Value == string.Empty ? 0.0F : float.Parse(m.Groups[5].Value, culture);
-            float avgFps = m.Groups[6].Value == string.Empty ? 0.0F : float.Parse(m.Groups[6].Value, culture);
-            string remaining = string.Empty;
-            if (m.Groups[7].Value != string.Empty)
-            {
-                remaining = m.Groups[7].Value + ":" + m.Groups[8].Value + ":" + m.Groups[9].Value;
-            }
-            if (string.IsNullOrEmpty(remaining))
-            {
-                remaining = "Calculating ...";
-            }
-
-            OnEncodeProgress(this, currentTask, totalTasks, percent, currentFps, avgFps, remaining);
-        }"""
+if __name__ == '__main__':
+    filename_no_ext='bsg4-3'
+    filename='bsg4-3.iso'
+    dvd=DVD('bsg4-3', 'bsg4-3.iso')
+    dvd.scan_disk()
+    
+    commands=EncodeCommands(dvd.parsed_output, filename_no_ext)
