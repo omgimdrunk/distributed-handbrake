@@ -1,5 +1,4 @@
-from eventlet import patcher
-amqp = patcher.import_patched('amqplib.client_0_8')
+from amqplib import client_0_8 as amqp
 
 class MessageWriter(object):
     '''Creates and mantains a connection with a RabbitMQ server.

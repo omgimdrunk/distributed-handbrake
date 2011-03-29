@@ -10,7 +10,7 @@ import pickle
 from messagewriter import MessageWriter
 from tail import tail
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 class ProcessMonitor(threading.Thread):
     '''This class takes a subprocess, logfile, and lockfile as an input
@@ -169,7 +169,7 @@ if __name__ == '__main__':
                           command=['HandBrakeCLI.exe','-i','source','-o','test_job.mkv'],\
                           message_server='192.168.5.149',\
                           vhost='cluster',\
-                          userid='cadmin',\
+                          userid='cluster-admin',\
                           password='1234',\
                           server_hostname='Chiana',\
                           output_file='test_job.mkv')
