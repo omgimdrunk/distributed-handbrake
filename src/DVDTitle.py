@@ -1,14 +1,13 @@
 import subprocess
 import re
 import datetime
-import time
 import pickle
 import os.path
-from process_monitor import ProcessMonitor
 from messagewriter import MessageWriter
+import logging
+import threading
 
-
-QUALITY_FACTOR="18"
+logging.basicConfig(level=logging.DEBUG)
 
 class VideoTitle(object):
     """Holds basic information about a video title to encode"""
@@ -117,7 +116,7 @@ class DVD(object):
             currentTitle.duration=datetime.timedelta(hours=int(n.group(1)),minutes=int(n.group(2)),seconds=int(n.group(3)))
             audio_tracks_begin=3
 
-        num_audio_tracks=len(title_text)-audio_tracks_begin
+        #num_audio_tracks=len(title_text)-audio_tracks_begin
 
         if audio_tracks_begin < len(title_text):
             for index,i in enumerate(range(audio_tracks_begin,len(title_text))):
@@ -144,12 +143,18 @@ class DVD(object):
 
 class EncodeCommands(object):
     '''Given a DVD's parsed output, will come up with a list of HandBrakeCLI commands'''
-    def __init__(self, DVD_parsed, filename):
+    def __init__(self, DVD_parsed, filename, quality, preset='Archival'):
         self._DVD_parsed=DVD_parsed
         self._titles_to_encode=[]
-        self._determine_titles_to_encode()
         self.command_lines=[]
         self._filename=filename
+        self._quality=quality
+        self._preset=preset
+        #Presets are currently not implemented        
+        
+        logging.debug('Determining titles to encode')
+        self._determine_titles_to_encode()
+        logging.debug('Creating HandBrake commands')
         for i in self._titles_to_encode:
             self._construct_handbrake_command(i, self._filename)
         
@@ -209,7 +214,7 @@ class EncodeCommands(object):
         audio_string=audio_string[:-1]	#remove trailing comma
         codec_string=codec_string[:-1]
         audio_language=audio_language[:-1]
-        self.command_lines.append(['HandBrakeCLI','-i',filename,'-t',title.title_number,'-o',filename + '_title_'+title.title_number+'.mkv','-f','mkv','-m','-e','x264','-q', QUALITY_FACTOR, '-x', 'ref=2:bframes=2:subq=6:mixed-refs=0:weightb=0:8x8dct=0:trellis=0', '--strict-anamorphic','-a',audio_string,'-E',codec_string,'-6','-A', audio_language])
+        self.command_lines.append(['HandBrakeCLI','-t',title.title_number,'-o',filename + '_title_'+title.title_number+'.mkv','-f','mkv','-m','-e','x264','-q', self._quality, '-x', 'ref=2:bframes=2:subq=6:mixed-refs=0:weightb=0:8x8dct=0:trellis=0', '--strict-anamorphic','-a',audio_string,'-E',codec_string,'-6','-A', audio_language])
 
         return
 
@@ -228,35 +233,61 @@ class EncodeCommands(object):
         return audio_string,codec_string,audio_language
 
 
-def ProcessDVD(path,preset='Archival'):
-    (base_dir,file_name)=os.path.split(path)
-    (root,)=os.path.splitext(file_name)
-    os.chdir(base_dir)
-    os.mkdir(root)
-    subprocess.check_call(['mount','-t','loop',file_name,root])
-    cur_disk=DVD(root,path)
-    cur_disk.scan_disk()
-    commands=EncodeCommands(cur_disk.parsed_output,root)
-    subprocess.check_call(['umount',root])
-    writer=MessageWriter(server='Chiana', vhost='cluster-programs', \
+class ProcessDVD(threading.Thread):
+	def __init__(self,path):
+		threading.Thread.__init__(self)
+		self.path=path
+	def run(self):
+	    logging.debug('ProcessDVD called with argument ' + self.path)
+	    (base_dir,file_name)=os.path.split(self.path)
+	    (root,ext)=os.path.splitext(file_name)
+	    logging.debug('Changing directory to ' + base_dir)
+	    os.chdir(base_dir)
+	    logging.debug('Making directory ' + root)
+	    try:
+	        os.mkdir(root)
+	    except OSError:
+	        logging.debug('Directory exists, using existing')
+	    logging.debug('Mounting iso '+file_name+' to '+root)
+	    logging.debug(os.getcwd())
+	    subprocess.check_call(['sudo','mount','-o','loop',file_name,root])
+	    cur_disk=DVD(root,os.path.join(base_dir,root))
+	    logging.debug('Scanning mounted ISO')
+	    cur_disk.scan_disk()
+	    logging.debug('Generating encoding commands')
+	    commands=EncodeCommands(DVD_parsed=cur_disk.parsed_output,filename=root,quality='18')
+	    logging.debug('Unmounting ISO')
+	    subprocess.check_call(['sudo','umount',root])
+	    logging.debug('Establishing connection with message server')
+	    writer=MessageWriter(server='Chiana', vhost='cluster', \
                          userid='cluster-admin', password='1234', \
                          exchange='handbrake', exchange_durable=True, \
                          exchange_auto_delete=False, exchange_type='direct',\
                          routing_key='job-queue', queue_durable=True,\
                          queue_auto_delete=False)
-    for i,item in enumerate(commands):
-        os.mkdir(root+'job'+str(i))
-        subprocess.check_call(['mount','-t','loop',file_name,root+'job'+str(i)])
-        writer.send_message(pickle.dumps([base_dir+root+'job'+str(i),item]))
+	    import pprint
+	    print(commands.command_lines)
+	    for i,command in enumerate(commands.command_lines):
+	        job_mountpoint=root+'_job_'+str(i)
+	        logging.debug('Making job subdirectory ' + job_mountpoint)
+	        try:
+	            os.mkdir(job_mountpoint)
+	        except OSError:
+	            logging.debug('Directory already exists, using existing')
+	        logging.debug('Mounting ISO at ' + job_mountpoint)
+		#subprocess.check_call(['sudo','umount',job_mountpoint])
+	        subprocess.check_call(['sudo','mount','-o','loop',file_name,job_mountpoint])
+	        logging.debug('Appending output file to command')
+	        command.append('-i')
+	        command.append(job_mountpoint)
+		import pprint
+		pprint.pprint(command)
+	        logging.debug('Sending complete command to message server')
+	        writer.send_message(pickle.dumps([os.path.join(base_dir,job_mountpoint),command]))
         
     
 
 
 
 if __name__ == '__main__':
-    filename_no_ext='bsg4-3'
-    filename='bsg4-3.iso'
-    dvd=DVD('bsg4-3', 'bsg4-3.iso')
-    dvd.scan_disk()
-    
-    commands=EncodeCommands(dvd.parsed_output, filename_no_ext)
+    ProcessDVD('/mnt/cluster-programs/handbrake/jobs/CHARLIE_WILSONS_WAR.ISO').run()

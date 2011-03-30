@@ -19,9 +19,11 @@ class EventHandler(pyinotify.ProcessEvent):
         def process_IN_CLOSE_WRITE(self,event):
                 print("Close Write of " + event.pathname)
                 shutil.move(event.pathname,JOB_FOLDER+event.name)
-                DVDTitle.ProcessDVD(path=JOB_FOLDER+event.name)
+                DVDTitle.ProcessDVD(JOB_FOLDER+event.name).start()
         def process_IN_MOVED_TO(self,event):
                 print("Moved to " + event.pathname)
+                shutil.move(event.pathname,JOB_FOLDER+event.name)
+                DVDTitle.ProcessDVD(JOB_FOLDER+event.name).start()
 
 handler = EventHandler()
 notifier = pyinotify.Notifier(wm,handler)
