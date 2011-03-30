@@ -6,6 +6,7 @@ import os.path
 from messagewriter import MessageWriter
 import logging
 import threading
+import sys
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -42,8 +43,7 @@ class AudioTrack(object):
 class DVD(object):
     """Stores all the information about a dvd"""
     lines_to_keep=[" title "," Main Feature","duration:","audio tracks"," ch)", "Using ", "Dolby Surround", "00Hz"]
-    def __init__(self, name, disk_path):
-        self.name=name
+    def __init__(self, disk_path):
         self.disk_path=disk_path
         self.parsed_output=[]
         
@@ -143,11 +143,11 @@ class DVD(object):
 
 class EncodeCommands(object):
     '''Given a DVD's parsed output, will come up with a list of HandBrakeCLI commands'''
-    def __init__(self, DVD_parsed, filename, quality, preset='Archival'):
+    def __init__(self, DVD_parsed, filename_no_ext, quality, preset='Archival'):
         self._DVD_parsed=DVD_parsed
         self._titles_to_encode=[]
         self.command_lines=[]
-        self._filename=filename
+        self._filename=filename_no_ext
         self._quality=quality
         self._preset=preset
         #Presets are currently not implemented        
@@ -234,56 +234,112 @@ class EncodeCommands(object):
 
 
 class ProcessDVD(threading.Thread):
-	def __init__(self,path):
-		threading.Thread.__init__(self)
-		self.path=path
-	def run(self):
-	    logging.debug('ProcessDVD called with argument ' + self.path)
-	    (base_dir,file_name)=os.path.split(self.path)
-	    (root,ext)=os.path.splitext(file_name)
-	    logging.debug('Changing directory to ' + base_dir)
-	    os.chdir(base_dir)
-	    logging.debug('Making directory ' + root)
-	    try:
-	        os.mkdir(root)
-	    except OSError:
-	        logging.debug('Directory exists, using existing')
-	    logging.debug('Mounting iso '+file_name+' to '+root)
-	    logging.debug(os.getcwd())
-	    subprocess.check_call(['sudo','mount','-o','loop',file_name,root])
-	    cur_disk=DVD(root,os.path.join(base_dir,root))
-	    logging.debug('Scanning mounted ISO')
-	    cur_disk.scan_disk()
-	    logging.debug('Generating encoding commands')
-	    commands=EncodeCommands(DVD_parsed=cur_disk.parsed_output,filename=root,quality='18')
-	    logging.debug('Unmounting ISO')
-	    subprocess.check_call(['sudo','umount',root])
-	    logging.debug('Establishing connection with message server')
-	    writer=MessageWriter(server='Chiana', vhost='cluster', \
+    '''Accepts a path to a new video file to process and outputs a set of
+    Handbrake Encode Commands to a RabbitMQ server.
+    
+    path is the full path to the new video file
+    file_name is the file name with extension
+    root is the file name with no extension
+    
+    If the video file is a single file (handle mkv, avi, or mp4) will simply pass
+    it off to Handbrake in the form tuple(file_name,[Encode Command])
+    
+    If the video file is an ISO will mount the ISO, decide on which titles to encode,
+    create a set of directories of the form root_job_#num and mounts the ISO on them.
+    Finally emits a string of encode commands in the form tuple(root,[Encode Command])'''
+    
+    def __init__(self,path):
+        '''All we have to do here is start up the Threading interface and save the path'''
+        
+        threading.Thread.__init__(self)
+        self.path=path
+        
+    def run(self):
+        '''Main body of the code.'''
+        
+        logging.debug('ProcessDVD called with argument ' + self.path)
+        (base_dir,file_name)=os.path.split(self.path)
+        (root,ext)=os.path.splitext(file_name)
+        logging.debug('Changing directory to ' + base_dir)
+        os.chdir(base_dir)
+        if ext == '.ISO' or '.iso':
+            logging.debug('ISO file detected, proceding to mount')
+            logging.debug('Making directory ' + root)
+            try:
+                os.mkdir(root)
+            except OSError:
+                logging.debug('Directory exists, using existing')
+                if len(os.listdir(root)) != 0:
+                    logging.debug('It appears something is mounted at '+root)
+                    logging.debug('Attempting unmount')
+                    try:
+                        subprocess.check_call(['sudo','umount',root])
+                    except:
+                        logging.debug('Unmount failed')
+                        sys.exit('Mountpoint exists and has contents')
+                
+        logging.debug('Mounting iso '+file_name+' to '+root)
+        try:
+            subprocess.check_call(['sudo','mount','-o','loop',file_name,root])
+        except:
+            sys.exit('An unhandled exception occurred while executing a mount command. \
+            Check that you have passwordless sudo mount enabled')
+            
+        cur_disk=DVD(os.path.join(base_dir,root))
+        logging.debug('Scanning mounted ISO')
+        cur_disk.scan_disk()
+        logging.debug('Generating encoding commands')
+        commands=EncodeCommands(DVD_parsed=cur_disk.parsed_output,filename_no_ext=root,quality='18')
+
+        logging.debug('Unmounting ISO')
+        try:
+            subprocess.check_call(['sudo','umount',root])
+        except:
+            logging.error('Unmounting failed.  Ensure that passworless sudo umount\
+            is enabled')
+            
+        logging.debug('Removing temporary mount directory')
+        try:
+            os.rmdir(root)
+        except:
+            logging.error('Unable to remove temporary mount directory '+root)
+            
+        logging.debug('Establishing connection with message server')
+        writer=MessageWriter(server='Chiana', vhost='cluster', \
                          userid='cluster-admin', password='1234', \
                          exchange='handbrake', exchange_durable=True, \
                          exchange_auto_delete=False, exchange_type='direct',\
                          routing_key='job-queue', queue_durable=True,\
                          queue_auto_delete=False)
-	    import pprint
-	    print(commands.command_lines)
-	    for i,command in enumerate(commands.command_lines):
-	        job_mountpoint=root+'_job_'+str(i)
-	        logging.debug('Making job subdirectory ' + job_mountpoint)
-	        try:
-	            os.mkdir(job_mountpoint)
-	        except OSError:
-	            logging.debug('Directory already exists, using existing')
-	        logging.debug('Mounting ISO at ' + job_mountpoint)
-		#subprocess.check_call(['sudo','umount',job_mountpoint])
-	        subprocess.check_call(['sudo','mount','-o','loop',file_name,job_mountpoint])
-	        logging.debug('Appending output file to command')
-	        command.append('-i')
-	        command.append(job_mountpoint)
-		import pprint
-		pprint.pprint(command)
-	        logging.debug('Sending complete command to message server')
-	        writer.send_message(pickle.dumps([os.path.join(base_dir,job_mountpoint),command]))
+        
+        for i,command in enumerate(commands.command_lines):
+            job_mountpoint=root+'_job_'+str(i)
+            logging.debug('Making job subdirectory ' + job_mountpoint)
+            try:
+                os.mkdir(job_mountpoint)
+            except OSError:
+                logging.debug('Directory already exists, assuming previous mount')
+                if len(os.listdir(job_mountpoint)) != 0:
+                    try:
+                        subprocess.check_call(['sudo','umount',job_mountpoint])
+                    except:
+                        logging.error('Unable to unmount ' + job_mountpoint +'. Skipping')
+                        continue
+            
+            logging.debug('Mounting ISO at ' + job_mountpoint)
+            try:
+                subprocess.check_call(['sudo','mount','-o','loop',file_name,job_mountpoint])
+            except:
+                logging.error('Unhandled exception while mounting ISO for job.\
+                 Check that passworless sudo mount is available.')
+                logging.error('Skipping')
+                continue
+            
+            logging.debug('Appending output file to command')
+            command.append('-i')
+            command.append(job_mountpoint)
+            logging.debug('Sending complete command to message server')
+            writer.send_message(pickle.dumps([os.path.join(base_dir,job_mountpoint),command]))
         
     
 
