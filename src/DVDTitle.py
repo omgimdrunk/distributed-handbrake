@@ -278,32 +278,38 @@ class ProcessDVD(threading.Thread):
                         logging.debug('Unmount failed')
                         sys.exit('Mountpoint exists and has contents')
                 
-        logging.debug('Mounting iso '+file_name+' to '+root)
-        try:
-            subprocess.check_call(['sudo','mount','-o','loop',file_name,root])
-        except:
-            sys.exit('An unhandled exception occurred while executing a mount command. \
-            Check that you have passwordless sudo mount enabled')
+            logging.debug('Mounting iso '+file_name+' to '+root)
+            try:
+                subprocess.check_call(['sudo','mount','-o','loop',file_name,root])
+            except:
+                sys.exit('An unhandled exception occurred while executing a mount command. \
+                Check that you have passwordless sudo mount enabled')
+            self.cur_disk=DVD(os.path.join(base_dir,root))          
+        elif ext == '.mp4' or '.MP4' or '.mkv' or '.MKV' or '.avi' or '.AVI':
+            logging.debug('Non-ISO video file detected')
+            self.cur_disk=DVD(self.path)
+        else:
+            logging.error('Only ISOs, MP4s, MKVs, and AVIs are handled')
+            sys.exit('Only ISOs, MP4s, MKVs, and AVIs are handled')
             
-        cur_disk=DVD(os.path.join(base_dir,root))
-        logging.debug('Scanning mounted ISO')
-        cur_disk.scan_disk()
+        logging.debug('Scanning video')
+        self.cur_disk.scan_disk()
         logging.debug('Generating encoding commands')
-        commands=EncodeCommands(DVD_parsed=cur_disk.parsed_output,filename_no_ext=root,quality='18')
+        commands=EncodeCommands(DVD_parsed=self.cur_disk.parsed_output,filename_no_ext=root,quality='18')
 
-        logging.debug('Unmounting ISO')
-        try:
-            subprocess.check_call(['sudo','umount',root])
-        except:
-            logging.error('Unmounting failed.  Ensure that passworless sudo umount\
-            is enabled')
-            
-        logging.debug('Removing temporary mount directory')
-        try:
-            os.rmdir(root)
-        except:
-            logging.error('Unable to remove temporary mount directory '+root)
-            
+        if ext == '.ISO' or '.iso':
+            logging.debug('Unmounting ISO')
+            try:
+                subprocess.check_call(['sudo','umount',root])
+            except:
+                logging.error('Unmounting failed.  Ensure that passworless sudo umount\
+                is enabled')  
+            logging.debug('Removing temporary mount directory')
+            try:
+                os.rmdir(root)
+            except:
+                logging.error('Unable to remove temporary mount directory '+root)
+                
         logging.debug('Establishing connection with message server')
         writer=MessageWriter(server='Chiana', vhost='cluster', \
                          userid='cluster-admin', password='1234', \
@@ -313,27 +319,30 @@ class ProcessDVD(threading.Thread):
                          queue_auto_delete=False)
         
         for i,command in enumerate(commands.command_lines):
-            job_mountpoint=root+'_job_'+str(i)
-            logging.debug('Making job subdirectory ' + job_mountpoint)
-            try:
-                os.mkdir(job_mountpoint)
-            except OSError:
-                logging.debug('Directory already exists, assuming previous mount')
-                if len(os.listdir(job_mountpoint)) != 0:
-                    try:
-                        subprocess.check_call(['sudo','umount',job_mountpoint])
-                    except:
-                        logging.error('Unable to unmount ' + job_mountpoint +'. Skipping')
-                        continue
-            
-            logging.debug('Mounting ISO at ' + job_mountpoint)
-            try:
-                subprocess.check_call(['sudo','mount','-o','loop',file_name,job_mountpoint])
-            except:
-                logging.error('Unhandled exception while mounting ISO for job.\
-                 Check that passworless sudo mount is available.')
-                logging.error('Skipping')
-                continue
+            job_mountpoint=''
+            if ext == '.ISO' or '.iso':
+                job_mountpoint=root+'_job_'+str(i)
+                logging.debug('Making job subdirectory ' + job_mountpoint)
+                try:
+                    os.mkdir(job_mountpoint)
+                except OSError:
+                    logging.debug('Directory already exists, assuming previous mount')
+                    if len(os.listdir(job_mountpoint)) != 0:
+                        try:
+                            subprocess.check_call(['sudo','umount',job_mountpoint])
+                        except:
+                            logging.error('Unable to unmount ' + job_mountpoint +'. Skipping')
+                            continue
+                logging.debug('Mounting ISO at ' + job_mountpoint)
+                try:
+                    subprocess.check_call(['sudo','mount','-o','loop',file_name,job_mountpoint])
+                except:
+                    logging.error('Unhandled exception while mounting ISO for job.\
+                     Check that passworless sudo mount is available.')
+                    logging.error('Skipping')
+                    continue
+            else:
+                job_mountpoint=file_name
             
             logging.debug('Appending output file to command')
             command.append('-i')
