@@ -13,9 +13,8 @@ import os.path
 import DVDTitle
 import pyinotify
 import logging
+from config import *
 
-WATCH_FOLDER='/mnt/cluster-programs/video-encode-archive'
-JOB_FOLDER='/mnt/cluster-programs/handbrake/jobs/'
 
 class EventHandler(pyinotify.ProcessEvent):
         def process_IN_CLOSE_WRITE(self,event):

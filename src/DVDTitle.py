@@ -7,8 +7,10 @@ from messagewriter import MessageWriter
 import logging
 import threading
 import sys
+from config import *
 
-logging.basicConfig(level=logging.DEBUG)
+
+logging.basicConfig(level=logging.ERROR)
 
 class VideoTitle(object):
     """Holds basic information about a video title to encode"""
@@ -311,16 +313,17 @@ class ProcessDVD(threading.Thread):
                 logging.error('Unable to remove temporary mount directory '+root)
                 
         logging.debug('Establishing connection with message server')
-        writer=MessageWriter(server='Chiana', vhost='cluster', \
-                         userid='cluster-admin', password='1234', \
-                         exchange='handbrake', exchange_durable=True, \
+        writer=MessageWriter(server=MESSAGE_SERVER, vhost=VHOST, \
+                         userid=MESSAGE_USERID, password=MESSAGE_PWD, \
+                         exchange=EXCHANGE, exchange_durable=True, \
                          exchange_auto_delete=False, exchange_type='direct',\
-                         routing_key='job-queue', queue_durable=True,\
+                         routing_key=JOB_QUEUE, queue_durable=True,\
                          queue_auto_delete=False)
         
         for i,command in enumerate(commands.command_lines):
             job_mountpoint=''
             if ext == '.ISO' or '.iso':
+                #Must mount an ISO, will leave mounted until job complete message
                 job_mountpoint=root+'_job_'+str(i)
                 logging.debug('Making job subdirectory ' + job_mountpoint)
                 try:
