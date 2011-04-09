@@ -351,7 +351,7 @@ class ProcessDVD(threading.Thread):
             command.append('-i')
             command.append(job_mountpoint)
             logging.debug('Sending complete command to message server')
-            writer.send_message(pickle.dumps([os.path.join(base_dir,job_mountpoint),command]))
+            writer.send_message(pickle.dumps([job_mountpoint,command]))
         
     
 
