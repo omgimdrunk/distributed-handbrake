@@ -130,7 +130,7 @@ class DVD(object):
     def _parse_audio_line(self,  line):
         '''Takes a line of text from the Handbrake output that describes an audio channel
         and returns a dictionary of the parsed output'''
-	logging.debug('Processing Line: ' + str(line))
+        logging.debug('Processing Line: ' + str(line))
         m = re.match('\+ ([0-9][0-9]*), ([A-Za-z][A-Za-z]*) \(([-a-zA-Z0-9]*)\) \(([a-zA-Z0-9. \']*)\)',line)
         track=AudioTrack(track_number=m.group(1),track_lang=m.group(2),track_codec=m.group(3),track_channels=m.group(4))
         return track
