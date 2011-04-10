@@ -10,15 +10,20 @@
 #
 #
 
-import shutil
+
 import os.path
-import DVDTitle
-import pyinotify
+import shutil
 import logging
-from config import *
-import os
+import time
 import subprocess
+
+import pyinotify
+
+from config import *
+import DVDTitle
 import messagereader
+
+logging.basicConfig(level=logging.DEBUG)
 
 class EventHandler(pyinotify.ProcessEvent):
         def process_IN_CLOSE_WRITE(self,event):
@@ -38,6 +43,8 @@ class EventHandler(pyinotify.ProcessEvent):
 def ISOUmounter(message):
     '''This will be called by our message reader.  Message is a string consisting
     of a job mountpoint.'''
+    logging.debug('Recieved message ' + str(message))
+    logging.debug('Changing directory to ' + JOB_FOLDER)
     os.chdir(JOB_FOLDER)
     if os.path.isdir(message.body):
         try:
@@ -53,7 +60,7 @@ def ISOUmounter(message):
             else:
                 logging.info('Successfully removed directory '+message.body)
 
-                
+             
 umount_handler=messagereader.MessageReader(server=MESSAGE_SERVER, vhost=VHOST, \
                                            userid=MESSAGE_USERID, password=MESSAGE_PWD, \
                                            exchange=EXCHANGE, exchange_type='direct', \
@@ -65,9 +72,22 @@ umount_handler.start()
 wm = pyinotify.WatchManager()
 mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO
 handler = EventHandler()
-notifier = pyinotify.Notifier(wm,handler)
+notifier = pyinotify.ThreadedNotifier(wm,handler)
 
 wdd = wm.add_watch(WATCH_FOLDER, mask)
 
 
-notifier.loop()
+notifier.start()
+
+while True:
+    try:
+        time.sleep(1)
+    except KeyboardInterrupt:
+        notifier.stop()
+        umount_handler.stop()
+        print('\nUser Requested Stop\n')
+        break
+    except:
+        notifier.stop()
+        umount_handler.stop()
+        break
