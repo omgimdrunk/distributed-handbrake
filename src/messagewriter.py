@@ -1,4 +1,4 @@
-from amqplib import client_0_8 as amqp
+import client_0_8 as amqp
 
 class MessageWriter(object):
     '''Creates and mantains a connection with a RabbitMQ server.

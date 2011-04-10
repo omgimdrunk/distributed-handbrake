@@ -1,7 +1,9 @@
 import threading
 import time
 import logging
-from amqplib import client_0_8 as amqp
+import client_0_8 as amqp
+
+from config import *
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -30,14 +32,10 @@ class MessageReader(threading.Thread):
         self.channel.basic_consume(queue=self.routing_key, no_ack=True, callback=self.callback)
 
         while self._running:
-            cur_message=self.channel.basic_get()
-            if cur_message != None:
-                logging.debug('Calling ' + str(self.callback) + ' with message '+\
-                              str(cur_message))
-                self.callback(cur_message)
-            time.sleep(1)
-            #I am using basic_get() instead of wait() because the latter seems to
-            #never return, therefore the while loop only checks its status one time
+            try:
+                self.channel.wait(timeout=float('1'))
+            except amqp.Timeout:
+                pass
             
         logging.debug('closing channel')
         self.channel.close()
@@ -59,14 +57,31 @@ if __name__ == '__main__':
     exchange_type='direct'
     routing_key='job-queue'
     
-    def printOutput(message):
-        print "Message received: "+message.body
+    def printOutput(msg):
+        logging.debug('Message received')
+        print "Message received: "+msg.body
     
-    a=MessageReader(server, vhost, userid, password, exchange, exchange_type, routing_key, printOutput)
+    a=MessageReader(server=MESSAGE_SERVER, vhost=VHOST, \
+                    userid=MESSAGE_USERID, password=MESSAGE_PWD, \
+                    exchange=EXCHANGE, exchange_type='direct', \
+                    routing_key=SERVER_COMM_QUEUE, callback=printOutput)
+    
+    
+    import messagewriter
+    writer=messagewriter.MessageWriter(server=MESSAGE_SERVER, vhost=VHOST, \
+                                   userid=MESSAGE_USERID, password=MESSAGE_PWD, \
+                                   exchange=EXCHANGE, exchange_type='direct', \
+                                   routing_key=SERVER_COMM_QUEUE, exchange_auto_delete=False, \
+                                   queue_durable=True, queue_auto_delete=False)
+    writer.send_message('Test')
+    time.sleep(10)
     logging.debug('Starting reader thread')
     a.start()
+    writer.send_message('Sleeping')
     logging.debug('Sleeping')
     time.sleep(5)
+    writer.send_message('Getting ready to stop reader thread')
+    time.sleep(1)
     logging.debug('Stopping reader thread')
     a.stop()
     logging.debug('Exiting')
