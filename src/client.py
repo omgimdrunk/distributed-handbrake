@@ -23,7 +23,8 @@ logging.debug('JOB_DIR set to '+JOB_DIR)
 
 def MakeJob(message):
     logging.debug('Got message '+str(message.body))
-    reply=pickle.dumps(message.body)
+    reply=pickle.loads(message.body)
+    logging.debug('Decoded to '+str(reply))
     logging.debug('Sending message '+str(reply[0]))
     writer.send_message(reply[0])
 
