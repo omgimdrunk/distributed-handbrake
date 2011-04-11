@@ -2,7 +2,6 @@ import threading
 import os
 import socket
 import shutil
-import time
 import logging
 import pickle
 

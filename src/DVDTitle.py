@@ -7,7 +7,7 @@ from messaging import MessageWriter
 import logging
 import threading
 import sys
-from config import *
+from config import * #@UnusedWildImport
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -24,7 +24,7 @@ class VideoTitle(object):
     def __str__(self):
         formatted="Title Number: " + str(self.title_number) + "\nDuration: " + str(self.duration) + "\nNumber of Audio Tracks: "\
        + str(self.number_of_tracks) + "\n"
-        for key, value in self.audio_tracks.items():
+        for value in self.audio_tracks.items():
             formatted=formatted + str(value) + "\n"
         return formatted
         

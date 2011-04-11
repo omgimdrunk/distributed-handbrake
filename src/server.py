@@ -10,16 +10,23 @@
 #
 #
 
-
 import os.path
 import shutil
 import logging
 import time
 import subprocess
+import platform
+import sys
 
-import pyinotify
+if platform.system()=='Linux':
+    try:
+        import pyinotify #@UnresolvedImport
+    except:
+        sys.exit('pyinotify must be installed')
+else:
+    sys.exit('Only Linux is supported as a server')
 
-from config import *
+from config import * #@UnusedWildImport
 import DVDTitle
 import messaging
 

@@ -3,7 +3,7 @@ import time
 import logging
 import client_0_8 as amqp
 
-from config import *
+from config import * #@UnusedWildImport
 
 logging.basicConfig(level=logging.DEBUG)
 

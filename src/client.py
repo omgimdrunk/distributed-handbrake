@@ -5,7 +5,7 @@ import logging
 import time
 import pickle
 
-from config import *
+from config import * #@UnusedWildImport
 from messaging import MessageReader, MessageWriter
 
 
