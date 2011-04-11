@@ -6,8 +6,8 @@ import time
 import pickle
 
 from config import *
-from messagereader import MessageReader
-import messagewriter
+from messaging import MessageReader, MessageWriter
+
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -37,7 +37,7 @@ reader=MessageReader(server='Chiana', vhost='cluster', \
                  callback=MakeJob)
 
 logging.debug('Opening message writer')
-writer=messagewriter.MessageWriter(server=MESSAGE_SERVER, vhost=VHOST, \
+writer=MessageWriter(server=MESSAGE_SERVER, vhost=VHOST, \
                                    userid=MESSAGE_USERID, password=MESSAGE_PWD, \
                                    exchange=EXCHANGE, exchange_type='direct', \
                                    routing_key=SERVER_COMM_QUEUE, exchange_auto_delete=False, \

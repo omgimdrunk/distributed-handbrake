@@ -7,7 +7,7 @@ import time
 import logging
 import pickle
 
-from messagewriter import MessageWriter
+from messaging import MessageWriter
 from tail import tail
 
 logging.basicConfig(level=logging.DEBUG)

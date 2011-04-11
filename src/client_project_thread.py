@@ -7,8 +7,8 @@ import logging
 import pickle
 
 from client_job_thread import JobThread
-from messagewriter import MessageWriter
-from messagereader import MessageReader
+from messaging import MessageWriter
+from messaging import MessageReader
 
 
 class ProjectThread(threading.Thread):

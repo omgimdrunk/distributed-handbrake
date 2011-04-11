@@ -21,7 +21,7 @@ import pyinotify
 
 from config import *
 import DVDTitle
-import messagereader
+import messaging
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -61,7 +61,7 @@ def ISOUmounter(message):
                 logging.info('Successfully removed directory '+message.body)
 
              
-umount_handler=messagereader.MessageReader(server=MESSAGE_SERVER, vhost=VHOST, \
+umount_handler=messaging.MessageReader(server=MESSAGE_SERVER, vhost=VHOST, \
                                            userid=MESSAGE_USERID, password=MESSAGE_PWD, \
                                            exchange=EXCHANGE, exchange_type='direct', \
                                            routing_key=SERVER_COMM_QUEUE, \

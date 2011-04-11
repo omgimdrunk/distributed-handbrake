@@ -3,7 +3,7 @@ import re
 import socket
 import hashlib
 
-from messagewriter import MessageWriter
+from messaging import MessageWriter
 
 homedir = os.path.expanduser('~')
 programdir=os.path.join(homedir, 'cluster_programs')

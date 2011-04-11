@@ -1,9 +1,9 @@
-import messagewriter
+import messaging
 import sys
 
 from config import *
 
-writer=messagewriter.MessageWriter(SERVER_COMM_WRITER)
+writer=messaging.MessageWriter(SERVER_COMM_WRITER)
 
 while True:
     try:
