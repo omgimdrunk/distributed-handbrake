@@ -1,5 +1,11 @@
 import client_0_8 as amqp
 
+class AttributeError(Exception):
+    def __init__(self,value):
+        self.value=value
+    def __str__(self,value):
+        return repr(self.value)
+
 class MessageWriter(object):
     '''Creates and mantains a connection with a RabbitMQ server.
     
@@ -21,31 +27,44 @@ class MessageWriter(object):
     send_message: takes a string/pickled object and sends it to the queue
     close: closes the channel and connection'''
     
-    def __init__(self, routing_key,  server='localhost', vhost='/', userid='guest', password='guest', exchange='', \
-                  exchange_type='direct', exchange_durable=True, exchange_auto_delete=False, queue_durable=False, queue_auto_delete=True):
+    def __init__(self, *args, **kwargs):
         '''Opens connection with server, establishes a channel, declares an exchange, declares a queue, and binds the queue to the exchange'''
-        self._server=server
-        self._vhost=vhost
-        self._userid=userid
-        self._password=password
-        self._exchange=exchange
-        self._routing_key=routing_key
-        self._exchange_type=exchange_type
-        self._exchange_durable=exchange_durable
-        self._exchange_auto_delete=exchange_auto_delete
-        self._queue_durable=queue_durable
-        self._queue_auto_delete=queue_auto_delete
+        self._options=dict(routing_key='',  server='localhost', vhost='/',\
+             userid='guest', password='guest', exchange='',\
+             exchange_type='direct', exchange_durable=True, \
+             exchange_auto_delete=False, queue_durable=False, \
+             queue_auto_delete=True)
         
-        self._connection = amqp.Connection(host=self._server, userid=self._userid, password=self._password, virtual_host=self._vhost)
+        if len(kwargs)!=0:
+            self._options.update(kwargs)
+        else:
+            self._options.update(args[0])            
+            
+        if self._options['routing_key']=='':
+            raise AttributeError('Routing Key must be defined')
+        
+        self._connection = amqp.Connection(host=self._options['server'], \
+                                           userid=self._options['userid'], \
+                                           password=self._options['password'], \
+                                           virtual_host=self._options['vhost'])
         self._channel = self._connection.channel()
-        self._channel.exchange_declare(exchange=self._exchange, type=self._exchange_type, durable=self._exchange_durable,  auto_delete=self._exchange_auto_delete)
-        self._channel.queue_declare(queue=self._routing_key, durable=self._queue_durable,  auto_delete=self._queue_auto_delete)
-        self._channel.queue_bind(queue=self._routing_key, exchange=self._exchange,  routing_key=self._routing_key)
+        self._channel.exchange_declare(exchange=self._options['exchange'], \
+                                       type=self._options['exchange_type'], \
+                                       durable=self._options['exchange_durable'], \
+                                       auto_delete=self._options['exchange_auto_delete'])
+        self._channel.queue_declare(queue=self._options['routing_key'], \
+                                    durable=self._options['queue_durable'], \
+                                    auto_delete=self._options['queue_auto_delete'])
+        self._channel.queue_bind(queue=self._options['routing_key'], \
+                                 exchange=self._options['exchange'], \
+                                 routing_key=self._options['routing_key'])
         
     def send_message(self, message):
         '''Takes a string/pickled object and sends it to the queue'''
         msg=amqp.Message(message)
-        self._channel.basic_publish(exchange=self._exchange, routing_key=self._routing_key, msg=msg)
+        self._channel.basic_publish(exchange=self._options['exchange'], \
+                                    routing_key=self._options['routing_key'], \
+                                    msg=msg)
         
     def close(self):
         '''Closes the channel and connection to the server'''

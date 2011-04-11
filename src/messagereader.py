@@ -10,37 +10,52 @@ logging.basicConfig(level=logging.DEBUG)
 class MessageReader(threading.Thread):
     '''Gets a message from a RabbitMQ server'''
     
-    def __init__(self, server, vhost, userid, password, exchange, exchange_type, routing_key, callback):
+    def __init__(self, *args, **kwargs):
         threading.Thread.__init__(self)
-        self.server=server
-        self.vhost=vhost
-        self.userid=userid
-        self.password=password
-        self.exchange=exchange
-        self.routing_key=routing_key
-        self.exchange_type=exchange_type
-        self.callback=callback
+        self._options=dict(server='localhost',vhost='/',userid='guest',password='guest',\
+                           exchange='',exchange_type='direct',exchange_durable=True,\
+                           exchange_auto_delete=False,routing_key='',queue_durable=True,\
+                           queue_auto_delete=False,no_ack=True,callback='')
         self._running=True
+        if len(kwargs)!=0:
+            self._options.update(kwargs)
+        else:
+            self._options.update(args[0])
+        if self._options['routing_key']=='':
+            raise AttributeError('Routing Key must be defined')
 
     def run(self):        
-        self.connection = amqp.Connection(use_threading=True,host=self.server, userid=self.userid, password=self.password, virtual_host=self.vhost)
-        self.channel = self.connection.channel()
-        self.channel.exchange_declare(exchange=self.exchange, type=self.exchange_type, durable=True, auto_delete=False)
-        self.channel.queue_declare(queue=self.routing_key, durable=True, auto_delete=False)
-        self.channel.queue_bind(queue=self.routing_key, exchange=self.exchange,  routing_key=self.routing_key)
+        self._connection = amqp.Connection(use_threading=True,\
+                                          host=self._options['server'], \
+                                          userid=self._options['userid'], \
+                                          password=self._options['password'], 
+                                          virtual_host=self._options['vhost'])
+        self._channel = self._connection.channel()
+        self._channel.exchange_declare(exchange=self._options['exchange'], \
+                                      type=self._options['exchange_type'], \
+                                      durable=self._options['exchange_durable'], \
+                                      auto_delete=self._options['exchange_auto_delete'])
+        self._channel.queue_declare(queue=self._options['routing_key'], \
+                                   durable=self._options['queue_durable'], \
+                                   auto_delete=self._options['queue_auto_delete'])
+        self._channel.queue_bind(queue=self._options['routing_key'], \
+                                exchange=self._options['exchange'], \
+                                routing_key=self._options['routing_key'])
         
-        self.channel.basic_consume(queue=self.routing_key, no_ack=True, callback=self.callback)
+        self._channel.basic_consume(queue=self._options['routing_key'], \
+                                   no_ack=self._options['no_ack'], \
+                                   callback=self._options['callback'])
 
         while self._running:
             try:
-                self.channel.wait(timeout=float('1'))
+                self._channel.wait(timeout=float('1'))
             except amqp.Timeout:
                 pass
             
         logging.debug('closing channel')
-        self.channel.close()
+        self._channel.close()
         logging.debug('closing connection')
-        self.connection.close()
+        self._connection.close()
         logging.debug('exiting thread')
 
     def stop(self):
