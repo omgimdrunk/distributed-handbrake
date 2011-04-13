@@ -16,11 +16,13 @@ import re
 import datetime
 import pickle
 import os.path
+import socket
 from messaging import MessageWriter
 import logging
 import threading
 import sys
 from config import * #@UnusedWildImport
+
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -365,7 +367,9 @@ class ProcessDVD(threading.Thread):
             command.append('-i')
             command.append(job_mountpoint)
             logging.debug('Sending complete command to message server')
-            writer.send_message(pickle.dumps([job_mountpoint,command]))
+            myip=socket.gethostbyname(socket.getfqdn())
+            ftp_location='ftp://' + myip + ':' + FTP_PORT + '/' + job_mountpoint
+            writer.send_message(pickle.dumps([ftp_location,command]))
             writer.close()
         
     

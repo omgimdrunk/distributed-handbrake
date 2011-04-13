@@ -17,6 +17,7 @@
 
 WATCH_FOLDER='/mnt/cluster-programs/video-encode-archive'
 JOB_FOLDER='/mnt/cluster-programs/handbrake/jobs/'
+FTP_PORT=2010
 
 MESSAGE_SERVER='Chiana'
 VHOST='cluster'

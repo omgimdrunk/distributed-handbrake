@@ -30,6 +30,12 @@ import time
 import subprocess
 import platform
 import sys
+import threading
+
+try:
+    from pyftpdlib import ftpserver
+except:
+    sys.exit('pyftpdlib must be installed')
 
 if platform.system()=='Linux':
     try:
@@ -44,6 +50,44 @@ import DVDTitle
 import messaging
 
 logging.basicConfig(level=logging.DEBUG)
+
+class ServeFTP(threading.Thread):
+    
+    def __init__(self, path='.', ip='127.0.0.1', port='21'):
+        threading.Thread.__init__(self)
+        self._path=path
+        self._ip=ip
+        self._port=port
+        self._running=True
+
+    def run(self):
+        logging.debug('Starting FTP server on ' + self._ip + ':' + self._port + ' with root '\
+                      + self._path)
+        os.chdir(self._path)
+        authorizer = ftpserver.DummyAuthorizer()
+        authorizer.add_anonymous(homedir='.',perm='elradfmw')
+    
+        handler = ftpserver.FTPHandler
+        handler.authorizer = authorizer
+    
+        address = (self._ip, self._port) #Can use 0.0.0.0 to listen on all interfaces/IPs
+        server = ftpserver.FTPServer(address, handler)
+    
+        server.max_cons = 256
+        server.max_cons_per_ip = 5
+        
+        while self._running:
+            server.serve_forever(count=1)
+            
+        logging.debug('FTP Server successfully stopped')
+        
+    def stop(self):
+        logging.debug('Stopping FTP Server')
+        self._running=False
+
+
+
+
 
 class EventHandler(pyinotify.ProcessEvent):
         def process_IN_CLOSE_WRITE(self,event):
@@ -96,6 +140,8 @@ notifier = pyinotify.ThreadedNotifier(wm,handler)
 
 wdd = wm.add_watch(WATCH_FOLDER, mask)
 
+ftpshare=ServeFTP(JOB_FOLDER,'0.0.0.0',FTP_PORT)
+ftpshare.start()
 
 notifier.start()
 
@@ -105,9 +151,11 @@ while True:
     except KeyboardInterrupt:
         notifier.stop()
         umount_handler.stop()
+        ftpshare.stop()
         print('\nUser Requested Stop\n')
         break
     except:
         notifier.stop()
         umount_handler.stop()
+        ftpshare.stop()
         break
