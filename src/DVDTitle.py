@@ -99,10 +99,11 @@ class DVD(object):
         title_lines=[]
         
         for i,str in enumerate(filtered_output):
-            if str.find("title")!=-1:
+            if re.search('title',str)!=None:
                 title_lines.append(i)
+            
         if len(title_lines)==1:
-            titles[0]=filtered_output
+            titles.append(filtered_output[:])
         else:
             for i,line_num in enumerate(title_lines):
                 if i==(len(title_lines)-1):
@@ -146,7 +147,7 @@ class DVD(object):
         '''Takes a line of text from the Handbrake output that describes an audio channel
         and returns a dictionary of the parsed output'''
         logging.debug('Processing Line: ' + str(line))
-        m = re.match('\+ ([0-9][0-9]*), ([A-Za-z][A-Za-z]*) \(([-a-zA-Z0-9]*)\) \(([a-zA-Z0-9. \']*)\)',line)
+        m = re.match('\+ ([0-9][0-9]*), ([A-Za-z][A-Za-z]*) \(([-_a-zA-Z0-9]*)\) \(([a-zA-Z0-9. \']*)\)',line)
         track=AudioTrack(track_number=m.group(1),track_lang=m.group(2),track_codec=m.group(3),track_channels=m.group(4))
         return track
         
@@ -280,7 +281,7 @@ class ProcessDVD(threading.Thread):
         (root,ext)=os.path.splitext(file_name)
         logging.debug('Changing directory to ' + base_dir)
         os.chdir(base_dir)
-        if ext == '.ISO' or '.iso':
+        if ext == '.ISO' or ext == '.iso':
             logging.debug('ISO file detected, proceding to mount')
             logging.debug('Making directory ' + root)
             try:
@@ -303,7 +304,8 @@ class ProcessDVD(threading.Thread):
                 sys.exit('An unhandled exception occurred while executing a mount command. \
                 Check that you have passwordless sudo mount enabled')
             self.cur_disk=DVD(os.path.join(base_dir,root))          
-        elif ext == '.mp4' or '.MP4' or '.mkv' or '.MKV' or '.avi' or '.AVI':
+        elif ext == '.mp4' or ext == '.MP4' or ext == '.mkv' or ext == '.MKV' \
+        or ext == '.avi' or ext == '.AVI':
             logging.debug('Non-ISO video file detected')
             self.cur_disk=DVD(self.path)
         else:
@@ -315,7 +317,7 @@ class ProcessDVD(threading.Thread):
         logging.debug('Generating encoding commands')
         commands=EncodeCommands(DVD_parsed=self.cur_disk.parsed_output,filename_no_ext=root,quality='18')
 
-        if ext == '.ISO' or '.iso':
+        if ext == '.ISO' or ext == '.iso':
             logging.debug('Unmounting ISO')
             try:
                 subprocess.check_call(['sudo','umount',root])
@@ -338,7 +340,7 @@ class ProcessDVD(threading.Thread):
         
         for i,command in enumerate(commands.command_lines):
             job_mountpoint=''
-            if ext == '.ISO' or '.iso':
+            if ext == '.ISO' or ext == '.iso':
                 #Must mount an ISO, will leave mounted until job complete message
                 job_mountpoint=root+'_job_'+str(i)
                 logging.debug('Making job subdirectory ' + job_mountpoint)
