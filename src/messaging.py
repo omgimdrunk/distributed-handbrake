@@ -94,7 +94,7 @@ class MessageReader(threading.Thread):
         self._options=dict(server='localhost',vhost='/',userid='guest',password='guest',\
                            exchange='',exchange_type='direct',exchange_durable=True,\
                            exchange_auto_delete=False,routing_key='',queue_durable=True,\
-                           queue_auto_delete=False,no_ack=True,callback='')
+                           queue_auto_delete=False,no_ack=True,callback='',ack_queue=None)
         self._running=True
         if len(kwargs)!=0:
             self._options.update(kwargs)
@@ -102,6 +102,8 @@ class MessageReader(threading.Thread):
             self._options.update(args[0])
         if self._options['routing_key']=='':
             raise AttributeError('Routing Key must be defined')
+        if self._options['no_ack']==False and self._options['ack_queue']==None:
+            raise AttributeError('ack_queue must be defined if no_ack is set to false')
 
     def run(self):        
         self._connection = amqp.Connection(use_threading=True,\
@@ -130,6 +132,13 @@ class MessageReader(threading.Thread):
                 self._channel.wait(timeout=float('1'))
             except amqp.Timeout:
                 pass
+            if self._options['no_ack']==False:
+                try:
+                    acknowledgement=self._options['ack_queue'].get_nowait()
+                    logging.debug('Acknowledging message tag '+str(acknowledgement))
+                    self._channel.basic_ack(acknowledgement)
+                except:
+                    pass
             
         logging.debug('closing channel')
         self._channel.close()

@@ -34,3 +34,9 @@ SERVER_COMM_WRITER=dict(server=MESSAGE_SERVER, vhost=VHOST, \
                         routing_key=SERVER_COMM_QUEUE, exchange_auto_delete=False, \
                         queue_durable=True, queue_auto_delete=False)
 
+STATUS_WRITER=dict(server=MESSAGE_SERVER, vhost=VHOST, \
+                        userid=MESSAGE_USERID, password=MESSAGE_PWD, \
+                        exchange=EXCHANGE, exchange_type='direct', \
+                        routing_key='status-updates', exchange_auto_delete=False, \
+                        queue_durable=True, queue_auto_delete=False)
+

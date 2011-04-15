@@ -61,7 +61,7 @@ class ServeFTP(threading.Thread):
         self._running=True
 
     def run(self):
-        logging.debug('Starting FTP server on ' + self._ip + ':' + self._port + ' with root '\
+        logging.debug('Starting FTP server on ' + str(self._ip) + ':' + str(self._port) + ' with root '\
                       + self._path)
         os.chdir(self._path)
         authorizer = ftpserver.DummyAuthorizer()

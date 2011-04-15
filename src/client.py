@@ -17,58 +17,129 @@ import sys
 import logging
 import time
 import pickle
+import Queue
+import subprocess
+import threading
+import socket
 
 from config import * #@UnusedWildImport
 from messaging import MessageReader, MessageWriter
+from tail import tail
 
 
 logging.basicConfig(level=logging.DEBUG)
 
-JOB_DIR=''
-if platform.system()=='Windows':
-    JOB_DIR=os.path.join('\\\\','192.168.5.149','cluster-programs','handbrake','jobs')
-elif platform.system()=='Linux':
-    JOB_DIR=os.path.join('/','mnt','cluster-program','handbrake','jobs')
-else:
-    sys.exit('Only Windows and Linux are supported clients')
+class ProcessMonitor(threading.Thread):
+    '''This class takes a subprocess, logfile, and lockfile as an input
+    It proceeds to monitor the subprocess' output (assumed to be a pipe)
+    and writes it to the logfile when it can acquire the logfile's lock
     
-logging.debug('JOB_DIR set to '+JOB_DIR)
+    This is needed so you can access individual lines of the program's
+    output.  Otherwise the file is not readable until the process has finished
+    
+    This is meant to be run as a thread while initial program continues its work'''
+    def __init__(self, proc, filename,  lockfile):
+        threading.Thread.__init__(self)
+        self.proc=proc
+        self.file=open(filename, 'w', 1)
+        self.lockfile=lockfile
+        
+    def run(self):
+        while self.proc.poll() is None:
+            line = self.proc.stdout.readline()
+            if line:
+                self.lockfile.acquire()
+                self.file.write(line)
+                self.file.flush()
+                self.lockfile.release()
+        self.file.close()
+        
+class JobThread(threading.Thread):
+    def __init__(self,command,jobname):
+        self._command=command
+        self._job_name=jobname
+        threading.Thread.__init__(self)
+        self._status_updates=MessageWriter(STATUS_WRITER)
+        
+    def _encode_message(self,message):
+        '''Takes a message and returns a pickled tuple of the form:
+        [hostname,job name, message, timestamp]'''
+        return pickle.dumps([socket.gethostname(),self._job_name, message, time.asctime()])
 
-def MakeJob(message):
-    logging.debug('Got message '+str(message.body))
-    reply=pickle.loads(message.body)
-    logging.debug('Decoded to '+str(reply))
-    logging.debug('Sending message '+str(reply[0]))
-    writer.send_message(reply[0])
+    def run(self):
+        proc = subprocess.Popen(self._command, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        
+        loglock=threading.Lock()
+        logfile='encodinglog.txt'
 
-logging.debug('Opening message reader')    
-reader=MessageReader(server='Chiana', vhost='cluster', \
-                 userid='cluster-admin', password='1234', \
-                 exchange='handbrake', \
-                 exchange_type='direct',\
-                 routing_key='job-queue',\
-                 callback=MakeJob)
+        t = ProcessMonitor(proc, logfile, loglock)
+        t.start()
+        
+        while proc.poll() is None:
+            time.sleep(1)
+            loglock.acquire()
+            log=open(logfile, 'rU')
+            current_progress=tail(log, 1)
+            log.close()
+            loglock.release()
+            logging.debug(current_progress)
+            self._status_updates.send_message(self._encode_message(current_progress))
+    
 
-logging.debug('Opening message writer')
-writer=MessageWriter(server=MESSAGE_SERVER, vhost=VHOST, \
-                                   userid=MESSAGE_USERID, password=MESSAGE_PWD, \
-                                   exchange=EXCHANGE, exchange_type='direct', \
-                                   routing_key=SERVER_COMM_QUEUE, exchange_auto_delete=False, \
-                                   queue_durable=True, queue_auto_delete=False)
+class MakeJob(object):
+    def __init__(self,queue):
+        self._queue=queue
+        self._writer=MessageWriter(SERVER_COMM_WRITER)
+    def start_job(self,message):
+        reply=pickle.loads(message.body)
+        logging.debug('Decoded message to '+str(reply))
+        #We expect a message in the form of [job name, ftp path,
+        #[encode command ready for subprocess]]
+        os.chdir(os.path.expanduser('~'))
+        if os.path.exists('cluster') or os.path.isdir('cluster'):
+            os.chdir('cluster')
+        else:
+            os.mkdir('cluster')
+            os.chdir('cluster')
+            
+        subprocess.call(['wget','-r','-nH',reply[1]])
+        logging.debug('Starting ')
+        w=JobThread(reply[2],reply[0]).start()
+        w.join()        
+        logging.debug('Notifying reader to acknowledge message ' + str(message.delivery_tag))
+        self._queue.put(message.delivery_tag)
+        self._writer(reply[0]) #Have server unmount any ISOs
 
-logging.debug('Starting reader')
-reader.start()
-
-
-while True:
-    try:
-        time.sleep(1)
-    except KeyboardInterrupt:
-        reader.stop()
-        writer.close()
-        print('\nUser Requested Stop\n')
-        break
-    except:
-        reader.stop()
-        writer.close()
-        break
+if __name__ == '__main__':  
+    
+    logging.debug('Opening message reader')
+    acknowledge_queue=Queue.Queue()    
+    job_writer=MakeJob(acknowledge_queue)
+    
+    reader=MessageReader(server='Chiana', vhost='cluster', \
+                     userid='cluster-admin', password='1234', \
+                     exchange='handbrake', \
+                     exchange_type='direct',\
+                     routing_key='job-queue',\
+                     callback=job_writer.start_job,\
+                     no_ack=True,\
+                     ack_queue=acknowledge_queue)
+    
+    logging.debug('Opening message writer')
+    writer=MessageWriter(SERVER_COMM_WRITER)
+    logging.debug('Starting reader')
+    reader.start()
+    
+    
+    while True:
+        try:
+            time.sleep(1)
+        except KeyboardInterrupt:
+            reader.stop()
+            writer.close()
+            print('\nUser Requested Stop\n')
+            break
+        except:
+            reader.stop()
+            writer.close()
+            break
