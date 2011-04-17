@@ -370,7 +370,7 @@ class ProcessDVD(threading.Thread):
             command.append(job_mountpoint)
             logging.debug('Sending complete command to message server')
             myip=socket.gethostbyname(socket.getfqdn())
-            ftp_location='ftp://' + str(myip) + ':' + str(FTP_PORT) + '/' + job_mountpoint
+            ftp_location='ftp://' + str(myip) + ':' + str(FTP_PORT) + '/jobs/' + job_mountpoint
             writer.send_message(pickle.dumps([job_mountpoint,ftp_location,command]))
             writer.close()
         

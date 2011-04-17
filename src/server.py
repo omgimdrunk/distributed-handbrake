@@ -86,9 +86,6 @@ class ServeFTP(threading.Thread):
         self._running=False
 
 
-
-
-
 class EventHandler(pyinotify.ProcessEvent):
         def process_IN_CLOSE_WRITE(self,event):
                 logging.debug('Close of ' + event.pathname)
@@ -126,23 +123,20 @@ def ISOUmounter(message):
 
              
 umount_handler=messaging.MessageReader(server=MESSAGE_SERVER, vhost=VHOST, \
-                                           userid=MESSAGE_USERID, password=MESSAGE_PWD, \
-                                           exchange=EXCHANGE, exchange_type='direct', \
-                                           routing_key=SERVER_COMM_QUEUE, \
-                                           callback=ISOUmounter)
+                                       userid=MESSAGE_USERID, password=MESSAGE_PWD, \
+                                       exchange=EXCHANGE, exchange_type='direct', \
+                                       routing_key=SERVER_COMM_QUEUE, \
+                                       callback=ISOUmounter)
 umount_handler.start()
-#Runs in a separate thread and waits on incoming messages
+
+ftpshare=ServeFTP(BASE_DIR,'0.0.0.0',FTP_PORT)
+ftpshare.start()
 
 wm = pyinotify.WatchManager()
 mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO
 handler = EventHandler()
 notifier = pyinotify.ThreadedNotifier(wm,handler)
-
 wdd = wm.add_watch(WATCH_FOLDER, mask)
-
-ftpshare=ServeFTP(JOB_FOLDER,'0.0.0.0',FTP_PORT)
-ftpshare.start()
-
 notifier.start()
 
 while True:
