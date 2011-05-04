@@ -2,7 +2,6 @@ import os.path
 from ftplib import FTP
 import subprocess
 
-
 filelist=['client.py','__init__.py','config.py','messaging.py','tail.py','bin_win32/HandBrakeCLI.exe']
 folderlist=['client_0_8']
 
@@ -25,7 +24,28 @@ class FTPConnect(object):
     def close_connection(self):
         self._ftp.close()
 
-os.chdir(os.path.expanduser('~'))
+
+        
+print("Input the base directory for temporary storage.  Make sure it has a large quantity of free space.")
+print("Default is "+os.path.expanduser('~'))
+
+while True:
+    clientBaseDir = raw_input('-->')
+    if os.path.exists(clientBaseDir) and os.path.isdir(clientBaseDir):
+        os.chdir(clientBaseDir)
+        break
+    elif os.path.exists(clientBaseDir) and os.path.isdir(clientBaseDir)==False:
+        print("You must enter a valid, absolute, temporary directory")
+    elif os.path.exists(clientBaseDir)==False:
+        try:
+            os.mkdir(clientBaseDir)
+            os.chdir(clientBaseDir)
+            break
+        except:
+            print("Invalid directory entered.  Choose another temporary directory")
+    else:
+        print("Invalid directory path.  Please enter the full absolute path to a directory you have write access to")
+        
 try:
     os.mkdir('cluster')
 except:
@@ -47,3 +67,7 @@ for i in filelist:
     
 for i in folderlist:
     subprocess.call(['wget','-r','-N','-nH','ftp://192.168.5.149:2010/'+i])
+    
+file = open('config.py','a+')
+file.write('CLIENT_BASE_DIR=\'' + os.getcwd() + '\'\n')
+file.close()
