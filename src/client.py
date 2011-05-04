@@ -93,8 +93,7 @@ class MakeJob(object):
     def start_job(self,message):
         reply=pickle.loads(message.body)
         logging.debug('Decoded message to '+str(reply))
-        #We expect a message in the form of [job name, ftp path,
-        #[encode command ready for subprocess]]
+        #We expect a message in the form of [job name, ftp path,[encode command ready for subprocess]]
         os.chdir(os.path.expanduser('~'))
         if os.path.exists('cluster') or os.path.isdir('cluster'):
             os.chdir('cluster')

@@ -147,7 +147,7 @@ class JobThread(threading.Thread):
         t.start()
         
         while proc.poll() is None:
-            time.sleep(1)
+            time.sleep(30)
             loglock.acquire()
             log=open(logfile, 'rU')
             current_progress=tail(log, 1)
