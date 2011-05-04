@@ -76,7 +76,7 @@ class JobThread(threading.Thread):
         t.start()
         
         while proc.poll() is None:
-            time.sleep(1)
+            time.sleep(10)
             loglock.acquire()
             log=open(logfile, 'rU')
             current_progress=tail(log, 1)
@@ -94,14 +94,8 @@ class MakeJob(object):
         reply=pickle.loads(message.body)
         logging.debug('Decoded message to '+str(reply))
         #We expect a message in the form of [job name, ftp path,[encode command ready for subprocess]]
-        os.chdir(os.path.expanduser('~'))
-        if os.path.exists('cluster') or os.path.isdir('cluster'):
-            os.chdir('cluster')
-        else:
-            os.mkdir('cluster')
-            os.chdir('cluster')
-            
-        subprocess.call(['wget','-r','-nH',reply[1]])
+        os.chdir(CLIENT_BASE_DIR)  #@UndefinedVariable   Is added to config.py by client-deploy script       
+        subprocess.call(['wget','-r','-nH','--cut-dirs=1',reply[1]])
         logging.debug('Starting ')
         w=JobThread(reply[2],reply[0]).start()
         w.join()        
@@ -121,8 +115,9 @@ if __name__ == '__main__':
                      exchange_type='direct',\
                      routing_key='job-queue',\
                      callback=job_writer.start_job,\
-                     no_ack=True,\
+                     no_ack=False,\
                      ack_queue=acknowledge_queue)
+    reader.setPrefetch(prefetch_limit=1)
     
     logging.debug('Opening message writer')
     writer=MessageWriter(SERVER_COMM_WRITER)

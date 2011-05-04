@@ -149,6 +149,9 @@ class MessageReader(threading.Thread):
     def stop(self):
         logging.debug('Setting running to false')
         self._running=False
+        
+    def setPrefetch(self,prefetch_limit):
+        self._channel.basic_qos(prefetch_size=0, prefetch_count=prefetch_limit, a_global=True)
 
 
 if __name__ == '__main__':    
