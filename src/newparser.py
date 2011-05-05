@@ -16,7 +16,7 @@ import re
 import datetime
 import logging
 import io
-import pickle
+import os.path
 
 
 logging.basicConfig(level=logging.ERROR)
@@ -142,6 +142,10 @@ def parseDVD(filename):
         if m != None:
             current_dvd.title=m.group(1)
         current_line=output_file.readline().strip()
+        
+    if current_dvd.title=='':
+        (_,lone_filename)=os.path.split(filename)
+        (current_dvd.title,_)=os.path.splitext(lone_filename)
 
     while current_line!='HandBrake has exited.':
         current_title=Title()
