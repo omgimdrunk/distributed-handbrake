@@ -111,9 +111,12 @@ class MakeJob(object):
         logging.debug('Notifying reader to acknowledge message ' + str(message.delivery_tag))
         
         if os.path.isdir(input_name):
-            shutil.rmtree(input_name)
+            shutil.rmtree(path=input_name,ignore_errors=True)
         else:
-            os.remove(input_name)
+            try:
+                os.remove(input_name)
+            except:
+                pass
             
         ftp_connect=FTPConnect('192.168.5.149','2010')
         ftp_connect.change_directory('output')
