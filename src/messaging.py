@@ -96,6 +96,7 @@ class MessageReader(threading.Thread):
                            exchange_auto_delete=False,routing_key='',queue_durable=True,\
                            queue_auto_delete=False,no_ack=True,callback='',ack_queue=None)
         self._running=True
+        self._prefetch_limit=None
         if len(kwargs)!=0:
             self._options.update(kwargs)
         else:
@@ -122,6 +123,8 @@ class MessageReader(threading.Thread):
         self._channel.queue_bind(queue=self._options['routing_key'], \
                                 exchange=self._options['exchange'], \
                                 routing_key=self._options['routing_key'])
+        if self._prefetch_limit!=None:
+            self._channel.basic_qos(prefetch_size=0, prefetch_count=self._prefetch_limit, a_global=False)
         
         self._channel.basic_consume(queue=self._options['routing_key'], \
                                    no_ack=self._options['no_ack'], \
@@ -151,7 +154,7 @@ class MessageReader(threading.Thread):
         self._running=False
         
     def setPrefetch(self,prefetch_limit):
-        self._channel.basic_qos(prefetch_size=0, prefetch_count=prefetch_limit, a_global=True)
+        self._prefetch_limit=prefetch_limit
 
 
 if __name__ == '__main__':    

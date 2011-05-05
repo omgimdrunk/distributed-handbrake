@@ -21,10 +21,12 @@ import Queue
 import subprocess
 import threading
 import socket
+import shutil
 
 from config import * #@UnusedWildImport
 from messaging import MessageReader, MessageWriter
 from tail import tail
+from basicFTP import FTPConnect
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -96,12 +98,33 @@ class MakeJob(object):
         #We expect a message in the form of [job name, ftp path,[encode command ready for subprocess]]
         os.chdir(CLIENT_BASE_DIR)  #@UndefinedVariable   Is added to config.py by client-deploy script       
         subprocess.call(['wget','-r','-nH','--cut-dirs=1',reply[1]])
+        command=reply[2]
+        for i,item in enumerate(command):
+            if item=='-o':
+                output_name=command[i+1]
+            if item=='-i':
+                input_name=command[i+1]
         logging.debug('Starting ')
-        w=JobThread(reply[2],reply[0]).start()
+        w=JobThread(reply[2],reply[0])
+        w.start()
         w.join()        
         logging.debug('Notifying reader to acknowledge message ' + str(message.delivery_tag))
+        
+        if os.path.isdir(input_name):
+            shutil.rmtree(input_name)
+        else:
+            os.remove(input_name)
+            
+        ftp_connect=FTPConnect('192.168.5.149','2010')
+        ftp_connect.change_directory('output')
+        file = open(output_name,'rb')
+        logging.debug('Uploading output file')
+        ftp_connect.upload(output_name,file)
+        ftp_connect.close_connection()
+        file.close()
+        
         self._queue.put(message.delivery_tag)
-        self._writer(reply[0]) #Have server unmount any ISOs
+        self._writer.send_message(reply[0]) #Have server unmount any ISOs
 
 if __name__ == '__main__':  
     

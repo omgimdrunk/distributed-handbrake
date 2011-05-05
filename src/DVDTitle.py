@@ -178,6 +178,9 @@ class EncodeCommands(object):
             self._construct_handbrake_command(i, self._filename)
         
     def _determine_titles_to_encode(self):
+        if len(self._DVD_parsed)==1:
+            self._titles_to_encode=self._DVD_parsed
+            return
         title_durations=[]
         for index,title in enumerate(self._DVD_parsed):
             if title.duration>datetime.timedelta(minutes=15):

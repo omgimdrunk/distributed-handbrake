@@ -90,12 +90,14 @@ class EventHandler(pyinotify.ProcessEvent):
         def process_IN_CLOSE_WRITE(self,event):
                 logging.debug('Close of ' + event.pathname)
                 logging.debug('Moving ' + event.pathname + ' to ' + os.path.join(JOB_FOLDER,event.name))
+                time.sleep(1)
                 shutil.move(event.pathname,os.path.join(JOB_FOLDER,event.name))
                 logging.debug('Spawning encode processing thread')
                 DVDTitle.ProcessDVD(os.path.join(JOB_FOLDER,event.name)).start()
         def process_IN_MOVED_TO(self,event):
                 logging.debug(event.pathname + ' moved to watch folder')
                 logging.debug('Moving ' + event.pathname + ' to ' + os.path.join(JOB_FOLDER,event.name))
+                time.sleep(1)
                 shutil.move(event.pathname,os.path.join(JOB_FOLDER,event.name))
                 logging.debug('Spawning encode processing thread')
                 DVDTitle.ProcessDVD(os.path.join(JOB_FOLDER,event.name)).start()\
