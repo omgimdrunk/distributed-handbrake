@@ -16,6 +16,7 @@ import re
 import datetime
 import logging
 import io
+import pickle
 
 
 logging.basicConfig(level=logging.ERROR)
@@ -136,7 +137,7 @@ def parseDVD(filename):
     output_file.seek(0)
     current_line=output_file.readline().strip()
 
-    while current_line.startswith('+')==False:        #Advance through output until we reach summary section
+    while current_line.startswith('+')==False and current_line!='HandBrake has exited.':        #Advance through output until we reach summary section
         m = re.match('libdvdnav: DVD Title: (.*)',current_line)
         if m != None:
             current_dvd.title=m.group(1)
@@ -181,4 +182,5 @@ def parseDVD(filename):
     
 
 if __name__ == '__main__':
-    parseDVD('C:\\python-play\\bsg4-3.ISO')
+    g=parseDVD('C:\\python-play\\bsg4-3.ISO')
+    pickle.dump(g,open('bsg-dump','w'))
