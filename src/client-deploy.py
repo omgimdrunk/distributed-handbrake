@@ -2,7 +2,7 @@ import os.path
 from ftplib import FTP
 import subprocess
 
-filelist=['client.py','__init__.py','config.py','messaging.py','tail.py','bin_win32/HandBrakeCLI.exe']
+filelist=['client.py','__init__.py','config.py','messaging.py','tail.py','bin_win32/HandBrakeCLI.exe','basicFTP.py']
 folderlist=['client_0_8']
 
 class FTPConnect(object):
@@ -31,6 +31,8 @@ print("Default is "+os.path.expanduser('~'))
 
 while True:
     clientBaseDir = raw_input('-->')
+    if clientBaseDir == '':
+        clientBaseDir=os.path.expanduser('~')
     if os.path.exists(clientBaseDir) and os.path.isdir(clientBaseDir):
         os.chdir(clientBaseDir)
         break
