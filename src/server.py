@@ -46,7 +46,8 @@ else:
     sys.exit('Only Linux is supported as a server')
 
 from config import * #@UnusedWildImport
-import DVDTitle
+#import DVDTitle
+import jobGenerator as DVDTitle
 import messaging
 
 logging.basicConfig(level=logging.DEBUG)

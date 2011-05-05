@@ -115,8 +115,8 @@ def isSubtitleTrack(current_line):
     
 def parseSubtitleTrack(current_line):
     current_subtitle=Subtitle()
-    m=re.match('\+ ([0-9][0-9]*), ([A-Za-z0-9,]*) \(.*\) \(([a-zA-Z]*)\)\(([a-zA-Z0-9\-]*)\)',current_line)
-    iso639_2=re.search('\(iso639_2: ([a-zA-Z]*)\)',current_line)
+    m=re.match('\+ ([0-9][0-9]*), ([A-Za-z0-9, ]*) \(.*\) \(([a-zA-Z]*)\)\(([a-zA-Z0-9\-]*)\)',current_line)
+    iso639_2=re.search('\(iso639-2: ([a-zA-Z]*)\)',current_line)
     
     current_subtitle.track_number=m.group(1)
     current_subtitle.language=m.group(2)
@@ -147,7 +147,11 @@ def parseDVD(filename):
         current_title=Title()
         #Have a line in the format '+ title #:'
         m = re.match('\+ title ([0-9][0-9]*)',current_line)
-        current_title.title_number=m.group(1)
+        if m is None:
+            current_line=output_file.readline().strip()
+            continue
+        else:
+            current_title.title_number=m.group(1)
         
         current_line=output_file.readline().strip()
         while re.match('\+ duration: ([0-9][0-9]):([0-9][0-9]):([0-9][0-9])',current_line) is None:
@@ -182,5 +186,5 @@ def parseDVD(filename):
     
 
 if __name__ == '__main__':
-    g=parseDVD('C:\\python-play\\bsg4-3.ISO')
-    pickle.dump(g,open('bsg-dump','w'))
+    g=parseDVD('/mnt/cluster-programs/handbrake/jobs/SKYLINE.iso')
+    print(g)

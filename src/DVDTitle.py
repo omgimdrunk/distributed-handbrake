@@ -308,12 +308,12 @@ class ProcessDVD(threading.Thread):
                 Check that you have passwordless sudo mount enabled')
             self.cur_disk=DVD(os.path.join(base_dir,root))          
         elif ext == '.mp4' or ext == '.MP4' or ext == '.mkv' or ext == '.MKV' \
-        or ext == '.avi' or ext == '.AVI':
+        or ext == '.avi' or ext == '.AVI' or ext == '.mts' or ext == '.MTS':
             logging.debug('Non-ISO video file detected')
             self.cur_disk=DVD(self.path)
         else:
-            logging.error('Only ISOs, MP4s, MKVs, and AVIs are handled')
-            sys.exit('Only ISOs, MP4s, MKVs, and AVIs are handled')
+            logging.error('Only ISOs, MP4s, MKVs, MTSs, and AVIs are handled')
+            sys.exit('Only ISOs, MP4s, MKVs, MTSs, and AVIs are handled')
             
         logging.debug('Scanning video')
         self.cur_disk.scan_disk()
