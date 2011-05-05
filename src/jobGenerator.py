@@ -14,7 +14,7 @@ class jobTemplate(object):
         self.max_length=datetime.timedelta(hours=10)
         self.preset=None
         self.anamorphic='--strict-anamorphic'
-        self.quality_factor=18
+        self.quality_factor='18'
         self.audio_to_keep=dict([['track_nums',['1']], ['track_lang',['English','Unknown']]])
         self.subtitles_to_keep=dict([['track_nums',[None]], ['track_lang','English']])
         self.audio_conversion=dict([['copy','All'], ['bitrate','160'], ['fallback','lame']])
@@ -73,16 +73,17 @@ def jobGenerator(current_dvd, job_template):
                     subtitle_tracks_to_copy=HBCombine(subtitle_tracks_to_copy,subtitle.track_number)
                     subtitle_tracks_names=HBCombine(subtitle_tracks_names,subtitle.language_code)
             
-            if job_template.preset == None:        
-                encode_commands.append(['HandBrakeCLI','-i',input_name,'-o',current_dvd.title+'_track_'+\
-                        title.title_number+job_template.output_type,'-m','-e','x264',\
+            if job_template.preset == None:
+                output_file=str(current_dvd.title)+"_title_"+ title.title_number+job_template.output_type
+                encode_commands.append(['HandBrakeCLI','-t',title.title_number,'-o',output_file,'-m','-e','x264',\
                         '-q', job_template.quality_factor, '-x', job_template.x264_options, \
                         job_template.anamorphic,'-a', audio_tracks_to_convert, '-B', audio_bitrate, \
                         '-A', audio_track_names, '-s', subtitle_tracks_to_copy, '--srt-lang', \
                         subtitle_tracks_names, '-E', audio_conversions])
             else:
-                encode_commands.append(['HandBrakeCLI','-i',input_name,'-o',current_dvd.title+'_track_'+\
-                        title.title_number+job_template.output_type,'-m', '-Z',job_template.preset,\
+                output_file=str(current_dvd.title)+"_title_"+ title.title_number+job_template.output_type
+                encode_commands.append(['HandBrakeCLI','-t',title.title_number,'-i',input_name,'-o',output_file,\
+                                        '-m', '-Z',job_template.preset,\
                         '-a', audio_tracks_to_convert,'-B', audio_bitrate, '-A', audio_track_names,\
                         '-s', subtitle_tracks_to_copy, '--srt-lang', subtitle_tracks_names])
     
@@ -201,7 +202,6 @@ class ProcessDVD(threading.Thread):
                     continue
             else:
                 job_mountpoint=file_name
-            
             logging.debug('Appending output file to command')
             command.append('-i')
             command.append(job_mountpoint)
@@ -209,6 +209,7 @@ class ProcessDVD(threading.Thread):
             myip=socket.gethostbyname(socket.getfqdn())
             ftp_location='ftp://' + str(myip) + ':' + str(FTP_PORT) + '/jobs/' + job_mountpoint
             writer.send_message(pickle.dumps([job_mountpoint,ftp_location,command]))
+            logging.debug([job_mountpoint,ftp_location,command])
             
         writer.close()            
 

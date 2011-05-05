@@ -97,7 +97,7 @@ class MakeJob(object):
         logging.debug('Decoded message to '+str(reply))
         #We expect a message in the form of [job name, ftp path,[encode command ready for subprocess]]
         os.chdir(CLIENT_BASE_DIR)  #@UndefinedVariable   Is added to config.py by client-deploy script       
-        subprocess.call(['wget','-r','-nH','--cut-dirs=1',reply[1]])
+        subprocess.call(['wget','-r','-nH','-N','--cut-dirs=1',reply[1]])
         command=reply[2]
         for i,item in enumerate(command):
             if item=='-o':
