@@ -64,6 +64,9 @@ ftp.close_connection()
 
 print("Using wget to download remaining files")
 
+subprocess.call(['wget','-N','-nd','ftp://192.168.5.149:2010/client_files.py'])
+from client_files import *
+
 for i in filelist:
     subprocess.call(['wget','-r','-N','-nd','ftp://192.168.5.149:2010/'+i])
     
