@@ -4,6 +4,7 @@ import threading
 from messaging import MessageWriter
 import sys
 import socket
+import pickle
 
 from config import * #@UnusedWildImport
 from newparser import * #@UnusedWildImport

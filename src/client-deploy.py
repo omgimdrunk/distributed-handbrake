@@ -1,7 +1,6 @@
 import os.path
 from ftplib import FTP
 import subprocess
-import imp
 
 class FTPConnect(object):
     def __init__(self,host='localhost',port='21',username='anonymous',password=None):
