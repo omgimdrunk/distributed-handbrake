@@ -1,9 +1,7 @@
 import os.path
 from ftplib import FTP
 import subprocess
-
-filelist=['client.py','__init__.py','config.py','messaging.py','tail.py','bin_win32/HandBrakeCLI.exe','basicFTP.py']
-folderlist=['client_0_8']
+import imp
 
 class FTPConnect(object):
     def __init__(self,host='localhost',port='21',username='anonymous',password=None):
@@ -65,7 +63,7 @@ ftp.close_connection()
 print("Using wget to download remaining files")
 
 subprocess.call(['wget','-N','-nd','ftp://192.168.5.149:2010/client_files.py'])
-from client_files import *
+execfile('client_files.py')
 
 for i in filelist:
     subprocess.call(['wget','-r','-N','-nd','ftp://192.168.5.149:2010/'+i])
