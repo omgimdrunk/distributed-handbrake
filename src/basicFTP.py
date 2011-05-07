@@ -17,7 +17,9 @@ class FTPConnect(object):
         self._ftp.retrbinary("RETR "+filename,outfile.write)
         
     def upload(self,filename,infile):
-        self._ftp.storbinary("STOR "+filename,infile.read)
+        g=open(filename,"rb")
+        self._ftp.storbinary("STOR "+filename,g)
+        g.close
         
     def change_directory(self,directory):
         self._ftp.cwd(directory)

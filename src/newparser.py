@@ -190,5 +190,5 @@ def parseDVD(filename):
     
 
 if __name__ == '__main__':
-    g=parseDVD('/mnt/cluster-programs/handbrake/jobs/SKYLINE.iso')
+    g=parseDVD('/mnt/cluster-programs/handbrake/jobs/tmp')
     print(g)

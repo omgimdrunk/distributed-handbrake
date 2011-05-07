@@ -27,6 +27,7 @@ from config import * #@UnusedWildImport
 from messaging import MessageReader, MessageWriter
 from tail import tail
 from basicFTP import FTPConnect
+from newparser import * #@UnusedWildImport
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -43,7 +44,7 @@ class ProcessMonitor(threading.Thread):
     def __init__(self, proc, filename,  lockfile):
         threading.Thread.__init__(self)
         self.proc=proc
-        self.file=open(filename, 'w', 1)
+        self.file=open(filename, 'a', 1)
         self.lockfile=lockfile
         
     def run(self):
@@ -72,7 +73,13 @@ class JobThread(threading.Thread):
         proc = subprocess.Popen(self._command, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
         
         loglock=threading.Lock()
-        logfile='encodinglog.txt'
+        logfile='encodinglog-'+self._job_name+'.txt'
+        log = open(logfile,'w')
+        command_string=""
+        for i in self._command:
+            command_string += str(i) + " "
+        log.write(command_string+"\n")
+        log.close()
 
         t = ProcessMonitor(proc, logfile, loglock)
         t.start()
@@ -95,17 +102,38 @@ class MakeJob(object):
     def start_job(self,message):
         reply=pickle.loads(message.body)
         logging.debug('Decoded message to '+str(reply))
-        #We expect a message in the form of [job name, ftp path,[encode command ready for subprocess]]
+        #We expect a message in the form of [job name, ftp path,[[encode command ready for subprocess],title-duratino]]
         os.chdir(CLIENT_BASE_DIR)  #@UndefinedVariable   Is added to config.py by client-deploy script       
         subprocess.call(['wget','-r','-nH','-N','--cut-dirs=1',reply[1]])
-        command=reply[2]
+        input_name=reply[0]
+        command=reply[2][0]
+        duration=reply[2][1]
+        command.append('-i')
+        command.append(input_name)
+        print("Command received: "+str(command))
+        print("Duration: "+str(duration))
+        #We have to scan for the local title number as this can be different from when the server scanned
+        title_number=''
+        print("Scanning "+str(input_name))        
+        current_dvd=parseDVD(input_name)
+        print(str(current_dvd))
+        for title in current_dvd.titles:
+            print(str(title.duration))
+            if duration == title.duration:
+                title_number=title.title_number
+                command.append('-t')
+                command.append(title.title_number)
+                break
+        if title_number == '':
+            logging.error('Title to be encoded could not be identified')
+            return        
+        
         for i,item in enumerate(command):
             if item=='-o':
                 output_name=command[i+1]
-            if item=='-i':
-                input_name=command[i+1]
+
         logging.debug('Starting ')
-        w=JobThread(reply[2],reply[0])
+        w=JobThread(command,reply[0])
         w.start()
         w.join()        
         logging.debug('Notifying reader to acknowledge message ' + str(message.delivery_tag))

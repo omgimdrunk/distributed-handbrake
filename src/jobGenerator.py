@@ -76,17 +76,15 @@ def jobGenerator(current_dvd, job_template):
             
             if job_template.preset == None:
                 output_file=str(current_dvd.title)+"_title_"+ title.title_number+job_template.output_type
-                encode_commands.append(['HandBrakeCLI','-t',title.title_number,'-o',output_file,'-m','-e','x264',\
+                encode_commands.append([['HandBrakeCLI','-o',output_file,'-m','-e','x264',\
                         '-q', job_template.quality_factor, '-x', job_template.x264_options, \
                         job_template.anamorphic,'-a', audio_tracks_to_convert, '-B', audio_bitrate, \
                         '-A', audio_track_names, '-s', subtitle_tracks_to_copy, '--srt-lang', \
-                        subtitle_tracks_names, '-E', audio_conversions])
+                        subtitle_tracks_names, '-E', audio_conversions],title.duration])
             else:
                 output_file=str(current_dvd.title)+"_title_"+ title.title_number+job_template.output_type
-                encode_commands.append(['HandBrakeCLI','-t',title.title_number,'-i',input_name,'-o',output_file,\
-                                        '-m', '-Z',job_template.preset,\
-                        '-a', audio_tracks_to_convert,'-B', audio_bitrate, '-A', audio_track_names,\
-                        '-s', subtitle_tracks_to_copy, '--srt-lang', subtitle_tracks_names])
+                encode_commands.append([['HandBrakeCLI','-i',input_name,'-o',output_file,\
+                                        '-q', job_template.quality_factor, '-m', '-Z',job_template.preset],title.duration])
     
     return encode_commands
             
@@ -218,7 +216,8 @@ class ProcessDVD(threading.Thread):
 if __name__ == '__main__':
     import pprint
     from newparser import * #@UnusedWildImport
-    g=pickle.load(open('bsg-dump','r'))
+    #g=pickle.load(open('bsg-dump','r'))
+    g=parseDVD('/mnt/cluster-programs/handbrake/jobs/tmp')
     commands=jobGenerator(g,Movie())
     pp=pprint.PrettyPrinter(indent=4)
     pp.pprint(commands)
