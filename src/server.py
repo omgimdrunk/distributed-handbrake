@@ -47,7 +47,7 @@ else:
 
 from config import * #@UnusedWildImport
 #import DVDTitle
-import jobGenerator as DVDTitle
+import jobGenerator
 import messaging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -88,20 +88,21 @@ class ServeFTP(threading.Thread):
 
 
 class EventHandler(pyinotify.ProcessEvent):
-        def process_IN_CLOSE_WRITE(self,event):
-                logging.debug('Close of ' + event.pathname)
-                logging.debug('Moving ' + event.pathname + ' to ' + os.path.join(JOB_FOLDER,event.name))
+        def process_default(self,event):
+                if event.path==WATCH_FOLDER:
+                    return
                 time.sleep(1)
-                shutil.move(event.pathname,os.path.join(JOB_FOLDER,event.name))
-                logging.debug('Spawning encode processing thread')
-                DVDTitle.ProcessDVD(os.path.join(JOB_FOLDER,event.name)).start()
-        def process_IN_MOVED_TO(self,event):
-                logging.debug(event.pathname + ' moved to watch folder')
-                logging.debug('Moving ' + event.pathname + ' to ' + os.path.join(JOB_FOLDER,event.name))
-                time.sleep(1)
-                shutil.move(event.pathname,os.path.join(JOB_FOLDER,event.name))
-                logging.debug('Spawning encode processing thread')
-                DVDTitle.ProcessDVD(os.path.join(JOB_FOLDER,event.name)).start()\
+                try:                
+                    logging.debug('Moving ' + event.pathname + ' to ' + os.path.join(JOB_FOLDER,event.name))
+                    shutil.move(event.pathname,os.path.join(JOB_FOLDER,event.name))
+                except IOError:
+                    logging.error(os.path.join(event.pathname+' does not exist'))
+                    return
+                for directory in CONVERSION_TYPES:
+                    if directory in event.path:
+                        logging.debug('Spawning encode processing thread')
+                        jobGenerator.ProcessDVD(os.path.join(JOB_FOLDER,event.name),directory.replace('-','_')).start()
+
                 
                 
 def ISOUmounter(message):
@@ -130,29 +131,43 @@ umount_handler=messaging.MessageReader(server=MESSAGE_SERVER, vhost=VHOST, \
                                        exchange=EXCHANGE, exchange_type='direct', \
                                        routing_key=SERVER_COMM_QUEUE, \
                                        callback=ISOUmounter)
-umount_handler.start()
-
-ftpshare=ServeFTP(BASE_DIR,'0.0.0.0',FTP_PORT)
-ftpshare.start()
-
-wm = pyinotify.WatchManager()
-mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO
-handler = EventHandler()
-notifier = pyinotify.ThreadedNotifier(wm,handler)
-wdd = wm.add_watch(WATCH_FOLDER, mask)
-notifier.start()
-
-while True:
+def main():
     try:
-        time.sleep(1)
-    except KeyboardInterrupt:
-        notifier.stop()
-        umount_handler.stop()
-        ftpshare.stop()
-        print('\nUser Requested Stop\n')
-        break
-    except:
-        notifier.stop()
-        umount_handler.stop()
-        ftpshare.stop()
-        break
+        os.mkdir(WATCH_FOLDER)
+    except OSError:
+        logging.debug('Watch folder already exists')
+    for i in CONVERSION_TYPES:
+        try:
+            os.mkdir(os.path.join(WATCH_FOLDER,i))
+        except OSError:
+            logging.debug('Conversion folder ' + i + ' already exists')
+    
+    umount_handler.start()
+    
+    ftpshare=ServeFTP(BASE_DIR,'0.0.0.0',FTP_PORT)
+    ftpshare.start()
+    
+    wm = pyinotify.WatchManager()
+    mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO
+    handler = EventHandler()
+    notifier = pyinotify.ThreadedNotifier(wm,handler)
+    wdd = wm.add_watch(WATCH_FOLDER, mask, rec=True)
+    notifier.start()
+    
+    while True:
+        try:
+            time.sleep(1)
+        except KeyboardInterrupt:
+            notifier.stop()
+            umount_handler.stop()
+            ftpshare.stop()
+            print('\nUser Requested Stop\n')
+            break
+        except:
+            notifier.stop()
+            umount_handler.stop()
+            ftpshare.stop()
+            break
+
+if __name__ == '__main__':
+    main()

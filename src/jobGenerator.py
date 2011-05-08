@@ -8,7 +8,7 @@ import pickle
 
 from config import * #@UnusedWildImport
 from newparser import * #@UnusedWildImport
-
+CONVERSION_TYPES=['iPod_LQ','iPod_HQ','Movie_Archive','Movie_LQ','TV_Show_Archive','TV_Show_LQ']
 class jobTemplate(object):
     def __init__(self):
         self.min_length=datetime.timedelta(seconds=0)
@@ -22,16 +22,39 @@ class jobTemplate(object):
         self.output_type='.mkv'
         self.x264_options='ref=2:bframes=2:subq=6:mixed-refs=0:weightb=0:8x8dct=0:trellis=0'
         
-class TVShow(jobTemplate):
+class TV_Show_Archive(jobTemplate):
     def __init__(self):
         jobTemplate.__init__(self)
         self.min_length=datetime.timedelta(minutes=35)
         self.max_length=datetime.timedelta(minutes=55)
         
-class Movie(jobTemplate):
+class TV_Show_LQ(TV_Show_Archive):
+    def __init__(self):
+        self.quality_factor='26'
+        self.audio_to_keep=dict([['track_nums',['1']], ['track_lang',[None]]])
+        self.subtitles_to_keep=dict([['track_nums',[None]], ['track_lang',None]])
+        self.audio_conversion=dict([['faac','All'], ['bitrate','96'], ['fallback','lame']])
+        
+        
+class Movie_Archive(jobTemplate):
     def __init__(self):
         jobTemplate.__init__(self)
         self.min_length=datetime.timedelta(hours=1)
+        
+class Movie_LQ(Movie_Archive):
+    def __init__(self):
+        self.quality_factor='26'
+        self.audio_to_keep=dict([['track_nums',['1']], ['track_lang',[None]]])
+        self.subtitles_to_keep=dict([['track_nums',[None]], ['track_lang',None]])
+        self.audio_conversion=dict([['faac','All'], ['bitrate','96'], ['fallback','lame']])
+        
+class iPod_HQ(jobTemplate):
+    def __init__(self):
+        self.preset='"iPhone & iPod Touch"'
+        
+class iPod_LQ(jobTemplate):
+    def __init__(self):
+        self.quality_factor='26'
 
 def HBCombine(base_string,addition):
     if base_string == '':
@@ -80,18 +103,18 @@ def jobGenerator(current_dvd, job_template):
                         '-q', job_template.quality_factor, '-x', job_template.x264_options, \
                         job_template.anamorphic,'-a', audio_tracks_to_convert, '-B', audio_bitrate, \
                         '-A', audio_track_names, '-s', subtitle_tracks_to_copy, '--srt-lang', \
-                        subtitle_tracks_names, '-E', audio_conversions],title.duration])
+                        subtitle_tracks_names, '-E', audio_conversions],title.duration,title.title_number])
             else:
                 output_file=str(current_dvd.title)+"_title_"+ title.title_number+job_template.output_type
                 encode_commands.append([['HandBrakeCLI','-i',input_name,'-o',output_file,\
-                                        '-q', job_template.quality_factor, '-m', '-Z',job_template.preset],title.duration])
+                                        '-q', job_template.quality_factor, '-m', '-Z',job_template.preset],title.duration,title.title_number])
     
     return encode_commands
             
             
 class ProcessDVD(threading.Thread):
     '''Accepts a path to a new video file to process and outputs a set of
-    Handbrake Encode Commands to a RabbitMQ server.
+    Handbrake Encode Commands to a RabbitMQ server.  Path is of form [path,last_directory]
     
     path is the full path to the new video file
     file_name is the file name with extension
@@ -104,11 +127,12 @@ class ProcessDVD(threading.Thread):
     create a set of directories of the form root_job_#num and mounts the ISO on them.
     Finally emits a string of encode commands in the form tuple(root,[Encode Command])'''
     
-    def __init__(self,path):
+    def __init__(self,path,last_directory):
         '''All we have to do here is start up the Threading interface and save the path'''
         
         threading.Thread.__init__(self)
         self.path=path
+        self.compression_type=last_directory  #Turn last directory into a job-type creator
         
     def run(self):
         '''Main body of the code.'''
@@ -152,7 +176,9 @@ class ProcessDVD(threading.Thread):
         logging.debug('Scanning video')
         parsed_DVD=parseDVD(self.cur_disk_path)
         logging.debug('Generating encoding commands')
-        commands=jobGenerator(parsed_DVD,Movie())
+        logging.debug('self.compression_type is ' + str(self.compression_type))
+        f=globals()[str(self.compression_type)]
+        commands=jobGenerator(parsed_DVD,f())
 
         if ext == '.ISO' or ext == '.iso':
             logging.debug('Unmounting ISO')
@@ -218,7 +244,7 @@ if __name__ == '__main__':
     from newparser import * #@UnusedWildImport
     #g=pickle.load(open('bsg-dump','r'))
     g=parseDVD('/mnt/cluster-programs/handbrake/jobs/tmp')
-    commands=jobGenerator(g,Movie())
+    commands=jobGenerator(g,Movie_Archive())
     pp=pprint.PrettyPrinter(indent=4)
     pp.pprint(commands)
             

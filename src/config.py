@@ -15,7 +15,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-WATCH_FOLDER='/mnt/cluster-programs/video-encode-archive'
+WATCH_FOLDER='/mnt/cluster-programs/watch-folder'
+CONVERSION_TYPES=['iPod-LQ','iPod-HQ','Movie-Archive','Movie-LQ','TV-Show-Archive','TV-Show-LQ']
 JOB_FOLDER='/mnt/cluster-programs/handbrake/jobs/'
 BASE_DIR='/mnt/cluster-programs/handbrake/'
 FTP_PORT=2010

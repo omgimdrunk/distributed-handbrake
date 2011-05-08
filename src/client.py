@@ -102,37 +102,46 @@ class MakeJob(object):
     def start_job(self,message):
         reply=pickle.loads(message.body)
         logging.debug('Decoded message to '+str(reply))
-        #We expect a message in the form of [job name, ftp path,[[encode command ready for subprocess],title-duratino]]
+        #We expect a message in the form of [job name, ftp path,[[encode command ready for subprocess],
+        #title-duratino,title-number]]
         os.chdir(CLIENT_BASE_DIR)  #@UndefinedVariable   Is added to config.py by client-deploy script       
         subprocess.call(['wget','-r','-nH','-N','--cut-dirs=1',reply[1]])
         input_name=reply[0]
         command=reply[2][0]
         duration=reply[2][1]
+        tentative_title=reply[2][2]
         command.append('-i')
         command.append(input_name)
-        print("Command received: "+str(command))
-        print("Duration: "+str(duration))
+        logging.info("Command received: "+str(command))
+        logging.debug("Duration: "+str(duration))
         #We have to scan for the local title number as this can be different from when the server scanned
         title_number=''
-        print("Scanning "+str(input_name))        
+        logging.info("Scanning "+str(input_name))        
         current_dvd=parseDVD(input_name)
-        print(str(current_dvd))
+        logging.debug(str(current_dvd))
         for title in current_dvd.titles:
-            print(str(title.duration))
-            if duration == title.duration:
-                title_number=title.title_number
-                command.append('-t')
-                command.append(title.title_number)
+            logging.debug(str(title.duration))
+            if title.title_number == tentative_title and title.duration == duration:
+                title_number=tentative_title
                 break
+        if title_number=='':
+            logging.info('Title on local machine different from remote.  Double check output.')
+            for title in current_dvd.titles:
+                if duration == title.duration:
+                    title_number=title.title_number
+                    break
         if title_number == '':
             logging.error('Title to be encoded could not be identified')
-            return        
+            return
+        
+        command.append('-t')
+        command.append(title_number)        
         
         for i,item in enumerate(command):
             if item=='-o':
                 output_name=command[i+1]
 
-        logging.debug('Starting ')
+        logging.info('Beginning encode of '+input_name+' to '+output_name)
         w=JobThread(command,reply[0])
         w.start()
         w.join()        
@@ -149,7 +158,7 @@ class MakeJob(object):
         ftp_connect=FTPConnect('192.168.5.149','2010')
         ftp_connect.change_directory('output')
         file = open(output_name,'rb')
-        logging.debug('Uploading output file')
+        logging.info('Uploading output file')
         ftp_connect.upload(output_name,file)
         ftp_connect.close_connection()
         file.close()
