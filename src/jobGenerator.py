@@ -8,7 +8,7 @@ import pickle
 
 from config import * #@UnusedWildImport
 from newparser import * #@UnusedWildImport
-CONVERSION_TYPES=['iPod_LQ','iPod_HQ','Movie_Archive','Movie_LQ','TV_Show_Archive','TV_Show_LQ']
+
 class jobTemplate(object):
     def __init__(self):
         self.min_length=datetime.timedelta(seconds=0)
