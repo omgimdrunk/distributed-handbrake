@@ -30,6 +30,7 @@ class TV_Show_Archive(jobTemplate):
         
 class TV_Show_LQ(TV_Show_Archive):
     def __init__(self):
+        TV_Show_Archive.__init__(self)
         self.quality_factor='26'
         self.audio_to_keep=dict([['track_nums',['1']], ['track_lang',[None]]])
         self.subtitles_to_keep=dict([['track_nums',[None]], ['track_lang',None]])
@@ -43,6 +44,7 @@ class Movie_Archive(jobTemplate):
         
 class Movie_LQ(Movie_Archive):
     def __init__(self):
+        Movie_Archive.__init__(self)
         self.quality_factor='26'
         self.audio_to_keep=dict([['track_nums',['1']], ['track_lang',[None]]])
         self.subtitles_to_keep=dict([['track_nums',[None]], ['track_lang',None]])
@@ -50,10 +52,12 @@ class Movie_LQ(Movie_Archive):
         
 class iPod_HQ(jobTemplate):
     def __init__(self):
+        jobTemplate.__init__(self)
         self.preset='"iPhone & iPod Touch"'
         
 class iPod_LQ(jobTemplate):
     def __init__(self):
+        iPod_LQ.__init__(self)
         self.quality_factor='26'
 
 def HBCombine(base_string,addition):
@@ -232,7 +236,7 @@ class ProcessDVD(threading.Thread):
             command.append(job_mountpoint)
             logging.debug('Sending complete command to message server')
             myip=socket.gethostbyname(socket.getfqdn())
-            ftp_location='ftp://' + str(myip) + ':' + str(FTP_PORT) + '/jobs/' + job_mountpoint
+            ftp_location='ftp://' + str(myip)+ ':' + str(FTP_PORT) + '/jobs/' + job_mountpoint
             writer.send_message(pickle.dumps([job_mountpoint,ftp_location,command]))
             logging.debug([job_mountpoint,ftp_location,command])
             

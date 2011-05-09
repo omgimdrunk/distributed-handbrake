@@ -54,22 +54,22 @@ os.chdir('cluster')
 
 print("Opening connection with server")
 ftp = FTPConnect('192.168.5.149','2010')
-print("Downloading wget")
-file = open('wget.exe','wb')
-ftp.download('bin_win32/wget.exe',file)
+print("Downloading ncftpget")
+file = open('ncftpget.exe','wb')
+ftp.download('bin_win32/ncftpget.exe',file)
 file.close()
 ftp.close_connection()
 
-print("Using wget to download remaining files")
+print("Using ncftpget to download remaining files")
 
-subprocess.call(['wget','-N','-nd','ftp://192.168.5.149:2010/client_files.py'])
+subprocess.call(['ncftpget','ftp://192.168.5.149:2010/client_files.py'])
 execfile('client_files.py')
 
 for i in filelist:
-    subprocess.call(['wget','-r','-N','-nd','ftp://192.168.5.149:2010/'+i])
+    subprocess.call(['ncftpget','ftp://192.168.5.149:2010/'+i])
     
 for i in folderlist:
-    subprocess.call(['wget','-r','-N','-nH','ftp://192.168.5.149:2010/'+i])
+    subprocess.call(['ncftpget','-R','ftp://192.168.5.149:2010/'+i])
     
 file = open('config.py','a+')
 file.write('CLIENT_BASE_DIR=\'' + os.getcwd() + '\'\n')

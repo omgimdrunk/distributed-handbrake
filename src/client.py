@@ -105,7 +105,7 @@ class MakeJob(object):
         #We expect a message in the form of [job name, ftp path,[[encode command ready for subprocess],
         #title-duratino,title-number]]
         os.chdir(CLIENT_BASE_DIR)  #@UndefinedVariable   Is added to config.py by client-deploy script       
-        subprocess.call(['wget','-r','-nH','-N','--cut-dirs=1',reply[1]])
+        subprocess.call(['ncftpget','-R',reply[1]])
         input_name=reply[0]
         command=reply[2][0]
         duration=reply[2][1]
