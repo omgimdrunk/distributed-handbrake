@@ -31,6 +31,10 @@ import subprocess
 import platform
 import sys
 import threading
+import select
+
+import zeroconf
+import pybonjour
 
 try:
     from pyftpdlib import ftpserver
@@ -146,6 +150,16 @@ def main():
     
     ftpshare=ServeFTP(BASE_DIR,'0.0.0.0',FTP_PORT)
     ftpshare.start()
+    logging.debug('Broadcasting FTP with avahi')
+    sdRef = pybonjour.DNSServiceRegister(name = 'FTP',
+                                     regtype = '_ftp._tcp',
+                                     port = int(FTP_PORT),
+                                     callBack = zeroconf.register_callback)
+    
+
+    ready = select.select([sdRef], [], [],5)
+    if sdRef in ready[0]:
+        pybonjour.DNSServiceProcessResult(sdRef)
     
     wm = pyinotify.WatchManager()
     mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO
@@ -167,6 +181,7 @@ def main():
             notifier.stop()
             umount_handler.stop()
             ftpshare.stop()
+            sdRef.close()
             break
 
 if __name__ == '__main__':

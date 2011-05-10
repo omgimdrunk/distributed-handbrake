@@ -28,6 +28,7 @@ from messaging import MessageReader, MessageWriter
 from tail import tail
 from basicFTP import FTPConnect
 from newparser import * #@UnusedWildImport
+import zeroconf
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -155,7 +156,9 @@ class MakeJob(object):
             except:
                 pass
             
-        ftp_connect=FTPConnect('192.168.5.149','2010')
+        (ip,port)=zeroconf.getIPPort('_ftp._tcp')
+            
+        ftp_connect=FTPConnect(str(ip[0]),str(port[0]))
         ftp_connect.change_directory('output')
         file = open(output_name,'rb')
         logging.info('Uploading output file')

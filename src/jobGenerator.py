@@ -55,9 +55,9 @@ class iPod_HQ(jobTemplate):
         jobTemplate.__init__(self)
         self.preset='"iPhone & iPod Touch"'
         
-class iPod_LQ(jobTemplate):
+class iPod_LQ(iPod_HQ):
     def __init__(self):
-        iPod_LQ.__init__(self)
+        iPod_HQ.__init__(self)
         self.quality_factor='26'
 
 def HBCombine(base_string,addition):
