@@ -1,0 +1,34 @@
+Dependencies (All):
+	Python 2.6 or 2.7
+	RabbitMQ Server
+	pybonjour
+	
+Dependencies (server):
+	avahi with bonjour compatability
+	pyinotify
+
+Dependencies (client):
+	avahi for Linux, Apple's Bonjour for Windows
+	HandBrakeCLI and ncftpget for Linux
+	
+Recommended:
+	Gigabit ethernet
+	Server with fast hard drives/RAID
+	
+Install (Server):
+1. Install RabbitMQ Server
+2. Copy entire contents of src directory to desired location
+3. Install pyinotify, avahi, and pybonjour
+4. Set environmental variables in config.py
+5. Run command "python server.py", or "chmod +x server.py;./server.py"
+6. Make sure the watch folder (path set in config.py) is accessable to clients
+
+Install (Client):
+1. With server software running, and all dependencies installed, copy 
+client_deploy to client
+2. Run command "python client_deploy.py" and follow prompts
+3. Run command "python client_launcher.py"
+
+To submit a job, simply copy the video file or ISO to the desired 
+encoding-preset directory of the watch folder.  Output will be at 
+BASE_DIR/output.
